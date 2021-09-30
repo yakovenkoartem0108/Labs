@@ -23,4 +23,6 @@
    ё) Описать проделанную работу в отчете на asciidoc. +
    ж) Ответить на вопрос к первому разделу. +
    
-   
+ Создадим репозийторий и папку: 
+ 
+ ![Image alt](https://github.com/yakovenkoartem0108/Labs/raw/Lab1/Lab1/a.png)
