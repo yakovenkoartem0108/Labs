@@ -1,1 +1,108 @@
+:figure-caption: Рисунок
+= ОТЧЁТ  Лабораторная работа №2 
+
+Яковенко А.Д. КЭ-413 +
+
+== Задание
+Написать программу вычисляющую следующее выражение -3/3U *3 ,удивиться увиденному и объяснить результат. +
+Подключить плату к своему домашнему компу, проверить что все работает, плата прошивается и все работает как в аптеке. +
+Запустить на плате Lab1 из https://github.com/lamer0k/stm32Labs/tree/master/Lab1 +
+добавить main код для зажигания светодиодов
+
+ RCC::AHB1ENR::GPIOAEN::Enable::Set() ;
+  GPIOA::MODER::MODER5::Output::Set() ;
+  GPIOA::ODR::ODR5::High::Set() ;
+  Не забыть подключить
+#include "gpioaregisters.hpp" //for Gpioa
+
+ Пронаблюдать, что произошло на плате, все сфоткать. +
+ Сделать отчет с описание удивительных вещей из пункта а) и пошаговой работы с платой, с картинками, оглавлением, кодом и всяким модным и современным форматированием, чтобы отчет был читабельным и восхитительным. Описать ошибки которые вы получали при настройки, объяснить, что за ошибки, почему они возникли и как вы их исправили. +
+
+== Работа с программой
+
+Была создана программа, которая вычисляет следующее выражение: -3/3U *3 +
+
+.Код программы
+image::a.png[]
+
+В результате получилось -4, так как литтера U обозначает unsighned type, что и влияет на результат, т.е. тип данных unsigned int - беззнаковое целое число, также как и тип int (знаковое) занимает в памяти 2 байта. Но в отличие от int, тип unsigned int может хранить только положительные целые числа в диапазоне от 0 до 65535 (2^16)-1). +
+Отличие кроется в том как unsigned int использует старший бит, иногда называемый знаковый бит. Если старший бит равен 1, то для типа int компилятор Arduino считает, что это число отрицательное, а остальные 15 bit несут информацию о модуле целого числа в дополнительного кода представления числа, в то время как unsigned int использует все 16 бит для хранения модуля числа. +
+
+=== Проверка работоспособности платы
+
+Подключаем плату; +
+Настраиваем все в IAR, т.е. выбираем наше устройство. +
+
+image::b.png[]
+.Настройка платы
+image::c.png[500, 500]
+
+
+* Далее открываем проект lab1 и проверяем плату на прошиваемость
+
+ #include "rccregisters.hpp" // for RCC
+ std::uint32_t SystemCoreClock = 16'000'000U;
+ extern "C" {
+int __low_level_init(void)
+{
+//Switch on external 16 MHz oscillator
+RCC::CR::HSION::On::Set();
+while (RCC::CR::HSIRDY::NotReady::IsSet())
+{
+  }
+  //Switch system clock on external oscillator
+  RCC::CFGR::SW::Hsi::Set();
+  while (!RCC::CFGR::SWS::Hsi::IsSet())
+  {
+  }
+  RCC::APB2ENR::SYSCFGEN::Enable::Set();
+  return 1;
+}
+}
+int main()
+{
+  return 0;
+}
+
+
+.Фото платы
+image::d.png[]
+
+* Следующим пунктом реализуем зажигание диода
+
+ #include "rccregisters.hpp" // for RCC
+ #include "gpioaregisters.hpp" //for Gpioa
+ std::uint32_t SystemCoreClock = 16'000'000U;
+ extern "C" {
+int __low_level_init(void)
+{
+//Switch on external 16 MHz oscillator
+ RCC::CR::HSION::On::Set();
+while (RCC::CR::HSIRDY::NotReady::IsSet())
+{
+ }
+//Switch system clock on external oscillator
+RCC::CFGR::SW::Hsi::Set();
+while (!RCC::CFGR::SWS::Hsi::IsSet())
+{
+ }
+ RCC::APB2ENR::SYSCFGEN::Enable::Set();
+ return 1;
+ }
+ }
+
+
+ int main()
+{
+RCC::AHB1ENR::GPIOAEN::Enable::Set();
+GPIOA::MODER::MODER5::Output::Set();
+GPIOA::ODR::ODR5::High::Set();
+ return 0;
+}
+
+Результатом представлен на фото ниже: +
+
+
+.Фото платы
+image::e.png[]
 
