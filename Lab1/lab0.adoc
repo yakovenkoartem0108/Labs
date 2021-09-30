@@ -24,8 +24,16 @@
    ж) Ответить на вопрос к первому разделу. +
    
  Создадим репозийторий и папку: 
-
+ 
 .репозийторий Lab и папка Lab1 в репозийтории
 image::https://github.com/yakovenkoartem0108/Labs/blob/e80e08ab26367bc250e204ff5d8821cd2da47e35/Lab1/a.PNG[]
 
+Создадим проект Lab1 С++ и файл asciidoc +
 
+.проект Lab1 С++ и asciidoc lab0.adoc
+image::https://github.com/yakovenkoartem0108/Labs/blob/be03fd012d9ac7289f1441d8f5d118cf715facd2/Lab1/png/b.PNG[]
+
+Сделаем программу которая считает сумму двух char чисел, попробовать сложить несколько разных чисел
+
+.код программы
+image::[]
