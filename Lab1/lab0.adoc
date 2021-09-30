@@ -39,6 +39,6 @@ image::https://github.com/yakovenkoartem0108/Labs/blob/be03fd012d9ac7289f1441d8f
 image::https://github.com/yakovenkoartem0108/Labs/blob/7b72a30efaadf2dd003afab175bfe9d0c8bc8d41/Lab1/png/c.PNG[]
 
 .результат в Terminal I/O
-image::https:https://github.com/yakovenkoartem0108/Labs/blob/504005ff18a4a24207449846568fae1e141c8f86/Lab1/png/d.PNG[]
+image::https://github.com/yakovenkoartem0108/Labs/blob/55e3ba8a976bd9dddba6d088fc9723ab3c8622a6/Lab1/png/d.PNG[]
 
 
