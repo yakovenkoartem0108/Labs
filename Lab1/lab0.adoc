@@ -25,7 +25,7 @@
    
  Создадим репозийторий и папку: 
 
-.Процесс разработки с точки зрения IAR Workbench
+.репозийторий Lab и папка Lab1 в репозийтории
 image::https://github.com/yakovenkoartem0108/Labs/blob/e80e08ab26367bc250e204ff5d8821cd2da47e35/Lab1/a.PNG[]
 
 
