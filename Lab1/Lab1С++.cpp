@@ -8,6 +8,6 @@ int main()
   char z=0;
   z=x+y;
   
-std::cout << "z= " << z << std::endl;
+std::cout << static_cast<int>(z) << z << std::endl;
   return 0;
 }
