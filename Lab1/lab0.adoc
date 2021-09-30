@@ -41,4 +41,7 @@ image::https://github.com/yakovenkoartem0108/Labs/blob/7b72a30efaadf2dd003afab17
 .результат в Terminal I/O
 image::https://github.com/yakovenkoartem0108/Labs/blob/55e3ba8a976bd9dddba6d088fc9723ab3c8622a6/Lab1/png/d.PNG[]
 
-
+char - символьный. Переменная типа char занимает 1 байт. Однако вместо конвертации значения типа char в целое число, оно интерпретируется как ASCII-символ. +
+ASCII (сокр. от «American Standard Code for Information Interchange») — это американский стандартный код для обмена информацией, который определяет способ представления символов английского языка (+ несколько других) в виде чисел от 0 до 127. +
+.переменные в окне watch, с пошаговой отладкой
+image::[]
