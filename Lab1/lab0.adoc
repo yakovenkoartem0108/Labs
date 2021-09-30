@@ -25,4 +25,4 @@
    
  Создадим репозийторий и папку: 
  
- ![Image alt](https://github.com/yakovenkoartem0108/Labs/raw/Lab1/Lab1/a.png)
+ ![Image alt](https://github.com/yakovenkoartem0108/Labs/raw/Lab1/png/a.png)
