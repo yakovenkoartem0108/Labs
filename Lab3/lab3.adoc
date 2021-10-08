@@ -1,5 +1,6 @@
 :figure-caption: Рисунок
-= Отчет по лабораторной работе №3
+:table-caption: Таблица
+= Лабораторная работа №3
 :toc:
 :toc-title: Оглавление:
 
@@ -7,38 +8,46 @@
 
 = *Задание* +
 
-===  Сделать бегущий огонь из 4 светодиодов, подключенных к портам C.5, C.8, C9, A.5
+===  Сделать бегущий огонь из 4 светодиодов, подключенных к портам C.5, C.8, C.9, A.5.
 
-= *Решение задачи*
+= *Решение*
 
-XNUCLEO-F411RE – это отладочная плата от компании Waveshare с поддержкой Arduino, которая позволит изучить возможности микроконтроллера STM32F411RET6 на базе ядра Cortex-M3. +
-Для начала рассмотрим схему самой платы и проанализиурем, где расположены нужные нам порты.
+=== XNUCLEO-F411RE 
+*XNUCLEO-F411RE* – это отладочная плата от компании Waveshare с поддержкой Arduino, которая позволит изучить возможности микроконтроллера STM32F411RET6 на базе ядра Cortex-M3. +
 
+.Взаимосвязь между светодиодом и выводами микроконтроллера
+|===
+| FLASH LED	 | MCU PIN 
 
+|LED1
+|D13(PA5/PB13)
 
-.Схема платы XNucleo-F411RE
-image::XNUCLEO-F411RE_4.jpg[]
+|LED2
+|PC9
 
-Из схемы видно, что нам понадобятся PC_5, PC_9, PC_8, PC_5.
+|LED3
+|PC8
+
+|LED4
+|PC5  
+	
+|===
+
+Для задачи нужны выводы: PA_5; PC_9; PC_8; PC_5.
 
 = *Код программы*
 
 [source, c]
 #include "gpioaregisters.hpp" //for GPIOC
-#include "gpiocregisters.hpp" //for GPIOC
 #include "rccregisters.hpp"   //for RCC
-[source, c]
 std::uint32_t SystemCoreClock = 16'000'000U;
-[source, c]
 extern "C" {
 int __low_level_init(void)
 {
-//Switch on external 16 MHz oscillator
 RCC::CR::HSION::On::Set();
 while (RCC::CR::HSIRDY::NotReady::IsSet())
 {
   }
-  //Switch system clock on external oscillator
   RCC::CFGR::SW::Hsi::Set();
   while (!RCC::CFGR::SWS::Hsi::IsSet())
   {
@@ -84,11 +93,9 @@ int main()
     return 1;
 }
 
-= *Результат пргограммы*
+= *Результат*
 
 .Результат программы
-image::vid.gif[]
+image::a1.gif[350,350]
 
-video::video-file.mp4[width=640,start=60,opts=autoplay]
 
-video::video.mp4[width=640,start=60,opts=autoplay]
