@@ -1,42 +1,91 @@
 :figure-caption: Рисунок
-= ОТЧЁТ по лабораторной работе №2 
-:toc: 
+= Отчет по лабораторной работе №3
+:toc:
 :toc-title: Оглавление:
 
+Чепульская КЭ-413 +
 
-Яковенко А.Д. КЭ-413 +
+= *Задание* +
 
-=  *Задание* +
+ 1. Сделать бегущий огонь из 4 светодиодов, подключенных к портам C.5, C.8, C9, A.5
 
+ 2. Заготовка лежит с настройками портов светодиодов лежит в https://github.com/lamer0k/stm32Labs/tree/master/Lab1
 
-Написать программу вычисляющую следующее выражение -3/3U *3 ,удивиться увиденному и объяснить результат. +
-Подключить плату к своему домашнему компу, проверить что все работает, плата прошивается и все работает как в аптеке. +
-Запустить на плате Lab1 из https://github.com/lamer0k/stm32Labs/tree/master/Lab1 +
-добавить main код для зажигания светодиодов
+ 3. Сделать отчет как обычно
+
+= *Решение задачи*
+
+Для начала рассмотрим схему самой платы и проанализиурем, где расположены нужные нам порты.
+
+.Схема платы XNucleo-F411RE
+image::XNUCLEO-F411RE_4.jpg[]
+
+Из схемы видно, что нам понадобятся PC_5, PC_9, PC_8, PC_5.
+
+= *Код программы*
 
 [source, c]
-----
- RCC::AHB1ENR::GPIOAEN::Enable::Set() ;
-  GPIOA::MODER::MODER5::Output::Set() ;
-  GPIOA::ODR::ODR5::High::Set() ;
-  Не забыть подключить
-#include "gpioaregisters.hpp" //for Gpioa
-----
-Пронаблюдать, что произошло на плате, все сфоткать. +
+#include "gpioaregisters.hpp" //for GPIOC
+#include "gpiocregisters.hpp" //for GPIOC
+#include "rccregisters.hpp"   //for RCC
+[source, c]
+std::uint32_t SystemCoreClock = 16'000'000U;
+[source, c]
+extern "C" {
+int __low_level_init(void)
+{
+//Switch on external 16 MHz oscillator
+RCC::CR::HSION::On::Set();
+while (RCC::CR::HSIRDY::NotReady::IsSet())
+{
+  }
+  //Switch system clock on external oscillator
+  RCC::CFGR::SW::Hsi::Set();
+  while (!RCC::CFGR::SWS::Hsi::IsSet())
+  {
+  }
+  RCC::APB2ENR::SYSCFGEN::Enable::Set();
+  return 1;
+}
+}
+void delay(int cycles)
+{
+ for(int i=0; i < cycles; ++i)
+ {
+   asm volatile ("");
+ }
+}
+int main()
+{
+    for(;;)
+      {
+        RCC::AHB1ENR::GPIOAEN::Enable::Set() ;
+        GPIOA::MODER::MODER5::Output::Set() ;
+        RCC::AHB1ENR::GPIOCEN::Enable::Set() ;
+        GPIOC::MODER::MODER5::Output::Set() ;
+        GPIOC::MODER::MODER8::Output::Set() ;
+        GPIOC::MODER::MODER9::Output::Set() ;
+        GPIOA::ODR::ODR5::High::Set() ;
+        delay(1000000);
+        GPIOA::ODR::ODR5::Low::Set() ;
+        delay(1000000);
+        GPIOC::ODR::ODR5::High::Set() ;
+        delay(1000000);
+        GPIOC::ODR::ODR5::Low::Set() ;
+        delay(1000000);
+        GPIOC::ODR::ODR8::High::Set() ;
+        delay(1000000);
+        GPIOC::ODR::ODR8::Low::Set() ;
+        delay(1000000);
+        GPIOC::ODR::ODR9::High::Set() ;
+        delay(1000000);
+        GPIOC::ODR::ODR9::Low::Set() ;
+        delay(1000000);
+      }
+    return 1;
+}
 
-= *Программа по выраженеию -3/3U *3*
+= *Результат пргограммы*
 
-Была создана программа, которая вычисляет следующее выражение: -3/3U *3 +
-
-.Код программы
-
-image::video.mp4[]
-
-video::video.mp4[]
-
-
-
-.A walkthrough of the product
-video::video.mp4[]
-
-
+.Результат программы
+image::vid.gif[]
