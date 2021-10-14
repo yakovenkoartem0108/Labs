@@ -1,0 +1,111 @@
+:figure-caption: Рисунок
+:table-caption: Таблица
+= Лабораторная работа №4
+:toc:
+:toc-title: Оглавление:
+
+Яковенко А.Д. КЭ-413 +
+
+= *Задание* +
+
+===  Написать программу, которая моргает всеми 4 светодиодами, но без использования GPIOA::ODR::ODR5::High::Set().
+
+Все светодиоды загораются(A.5, C.5, C.8, C.9) после задержки все гаснут с частотой 1 Гц.
+
+===  Нужно описать, как работает операция ИСКЛЮЧАЮЩЕЕ ИЛИ и как поменять значения переменных местами, без привлечения третьей переменной
+
+Дано: а = 3; b = 4.
+
+= *Решение*
+
+=== XNUCLEO-F411RE 
+*XNUCLEO-F411RE* – это отладочная плата от компании Waveshare с поддержкой Arduino, которая позволит изучить возможности микроконтроллера STM32F411RET6 на базе ядра Cortex-M3. +
+
+.Взаимосвязь между светодиодом и выводами микроконтроллера
+|===
+| FLASH LED	 | MCU PIN 
+
+|LED1
+|D13(PA5/PB13)
+
+|LED2
+|PC9
+
+|LED3
+|PC8
+
+|LED4
+|PC5  
+	
+|===
+
+Для задачи нужны выводы: PA_5; PC_9; PC_8; PC_5.
+Для написания будем использовать операцию исключающее или.
+
+= *Код программы*
+
+[source, c]
+#include "gpioaregisters.hpp" //for GPIOC
+#include "gpiocregisters.hpp" //for GPIOC
+#include "rccregisters.hpp"   //for RCC
+std::uint32_t SystemCoreClock = 16'000'000U;
+extern "C" {
+int __low_level_init(void)
+{
+RCC::CR::HSION::On::Set();
+while (RCC::CR::HSIRDY::NotReady::IsSet())
+{
+  }
+  RCC::CFGR::SW::Hsi::Set();
+  while (!RCC::CFGR::SWS::Hsi::IsSet())
+  {
+  }
+  RCC::APB2ENR::SYSCFGEN::Enable::Set();
+  return 1;
+}
+}
+void delay(int cycles)
+{
+ for(int i=0; i < cycles; ++i)
+ {
+   asm volatile ("");
+ }
+}
+struct Leds
+      {
+        static void Blink()
+        {
+           uint32_t* ptrPcOdr = reinterpret_cast<uint32_t*>(0x40020814);
+           uint32_t* ptrPaOdr = reinterpret_cast<uint32_t*>(0x40020014);
+          *ptrPcOdr ^=  static_cast<uint32_t> ((1 << 5) | (1 << 8) | (1 << 9));
+          *ptrPaOdr ^=  static_cast<uint32_t>(1 << 5);
+          delay(1000000);
+          *ptrPcOdr ^=static_cast<uint32_t>((1 << 5) | (1 << 8) | (1 << 9));
+          *ptrPaOdr ^=static_cast<uint32_t>(1 << 5);
+          delay(1000000);
+       }
+      };
+int main()
+{
+RCC::AHB1ENR::GPIOAEN::Enable::Set();
+GPIOA::MODER::MODER5::Output::Set();
+RCC::AHB1ENR::GPIOCEN::Enable::Set();
+GPIOC::MODER::MODER5::Output::Set();
+GPIOC::MODER::MODER8::Output::Set();
+GPIOC::MODER::MODER9::Output::Set();
+      for(;;)
+       {
+        Leds::Blink();
+       }
+  return 1;
+}
+
+= *Результат*
+
+.Результат программы
+image::a1.gif[350,350]
+
+Исключающее или
+Оператор побитового исключающего или ( ^ ) сравнивает каждый бит своего первого операнда ссоответствующим битом второго операнда. Если бит одного из операндов равен 0, а бит второго операнда равен 1, соответствующий бит результата устанавливается в значение 1. в противном случае — нулю.
+
+Оба операнда оператора должны иметь целочисленные типы. Обычные арифметические преобразования, охваченные стандартными преобразованиями, применяются к операндам.
