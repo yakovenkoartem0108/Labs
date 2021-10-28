@@ -1,1 +1,96 @@
-Написать программу, которая по нажатию на User Button зажигает все (4) светодиоды, по следующему нажатию тушит все (4) светодиоды /
+На:figure-caption: Рисунок
+
+= Отчет по лабораторной работе №6
+:toc:
+:toc-title: Оглавление:
+
+Чепульская КЭ-413 +
+
+= *Задание* +
+
+. Написать программу, которая по нажатию на User Button зажигает все (4) светодиоды, по следующему нажатию тушит все (4) светодиоды
+Нужно настроить правильно порты, на Вход,  Medium Speed, без подтяжек, подтяжка на кнопку есть внешняя, поэтому внутренняя не нужна.
+
+= *Определение подключаемых портов* +
+
+Для начала рассмотрим схему самой платы и проанализиурем, где расположены нужные нам порты.
+
+.Схема платы XNucleo-F411RE
+image::XNUCLEO-F411RE_4.jpg[]
+
+Из схемы видно, что нам понадобятся PC_5, PC_9, PC_8, PC_5, PC_13.
+
+= *Код программы* +
+
+Далее напишем код подключения.
+
+[source, c]
+#include "gpioaregisters.hpp" //for GPIOC
+#include "gpiocregisters.hpp" //for GPIOC
+#include "rccregisters.hpp"   //for RCC
+#include <iostream>
+std::uint32_t SystemCoreClock = 16'000'000U;
+extern "C" {
+int __low_level_init(void)
+{
+RCC::CR::HSEON::On::Set();
+  while (!RCC::CR::HSERDY::NotReady::IsSet())
+    {
+    };
+  RCC::CFGR::SW::Hse::Set();
+  while(!RCC::CFGR::SWS::Hse::IsSet())
+    {
+    };
+//подача тактирования на шины
+  RCC::APB2ENR::SYSCFGEN::Enable::Set();
+  RCC::AHB1ENR::GPIOAEN::Enable::Set();
+  RCC::AHB1ENR::GPIOCEN::Enable::Set();
+//настройка портов
+  GPIOA::OSPEEDR::OSPEEDR5::MediumSpeed::Set();
+  GPIOA::MODER::MODER5::Output::Set();
+  GPIOC::OSPEEDR::OSPEEDR13::MediumSpeed::Set();
+  GPIOC::MODER::MODER13::Input::Set();
+  GPIOC::OSPEEDR::OSPEEDR5::MediumSpeed::Set();
+  GPIOC::MODER::MODER5::Output::Set();
+  GPIOC::OSPEEDR::OSPEEDR8::MediumSpeed::Set();
+  GPIOC::MODER::MODER8::Output::Set();
+  GPIOC::OSPEEDR::OSPEEDR9::MediumSpeed::Set();
+  GPIOC::MODER::MODER9::Output::Set();
+  return 1;
+ }
+}
+
+Далее напишем код самой программы:
+
+[source, c]
+int main()
+{
+static int flag = 0;
+   for(;;)
+    {
+      if ((GPIOC::IDR::IDR13::Low::IsSet()) && (flag == 0))
+      {
+       GPIOA::ODR::ODR5::High::Set();
+       GPIOC::ODR::ODR5::High::Set();
+       GPIOC::ODR::ODR8::High::Set();
+       GPIOC::ODR::ODR9::High::Set();
+       flag++;
+       continue;
+      }
+      if ((GPIOC::IDR::IDR13::Low::IsSet()) && (flag == 1) )
+      {
+        GPIOA::ODR::ODR5::Low::Set();
+        GPIOC::ODR::ODR5::Low::Set();
+        GPIOC::ODR::ODR8::Low::Set();
+        GPIOC::ODR::ODR9::Low::Set();
+        flag = 0;
+        continue;
+      }
+    }
+  return 1;
+}
+
+= *Результат программы* +
+
+image::d.gif[]
+
