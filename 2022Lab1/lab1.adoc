@@ -309,6 +309,7 @@ int main()
   std::string testMessage = "Hello world";
   for(;;)
   {
+  MessageTransmitter::Send(TestMessage);
   }
   return 0 ;
 }
