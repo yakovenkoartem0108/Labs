@@ -128,7 +128,7 @@ public:
   static void Send(std::string& message); // Передача ссылки на строку
   static void OnByteTransmimit();
 private:
-  static std::array<uint8_t, 255> buffer;
+  inline static std::array<uint8_t, 255> buffer = {};
   inline static size_t byteCounter = 0U;
   inline static size_t messageLenght = 0U;
 };
@@ -276,12 +276,18 @@ int __low_level_init(void)
     TIM3::CNT::Write(0);
     NVIC::ISER0::Write(1<<29U);
     TIM3::DIER::UIE::Enable::Set();
+    //Порт А2 и А3 на альтернативный режим работы
     GPIOA::MODER::MODER2::Alternate::Set();
     GPIOA::MODER::MODER3::Alternate::Set();
+    //Назначение портов А2 и А3 на альтернативную функцию 7
+    GPIOA::AFRL::AFRL2::Af7::Set();  // USART2 Tx
+    GPIOA::AFRL::AFRL3::Af7::Set();  // USART2 Rx
     //Подключаем USART2 к системе тактирования АРВ1
     USART2::CR1::OVER8::OversamplingBy16::Set();
     USART2::CR1::M::Data8bits::Set();
     USART2::CR1::PCE::ParityControlDisable::Set();
+    USART2::BRR::Write(8'000'000/ 9600);
+    NVIC::ISER0::Write(1<<6U); // разрешение глобальное прерывания от USART2
   return 1;
 }
 }
