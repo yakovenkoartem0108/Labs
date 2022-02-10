@@ -115,6 +115,10 @@ static void DummyHandler() { for(;;) {} }
 .Архитектура и взаимодействие классов в StarUML.
 image::a9.png[600,600]
 
+
+= *Прерывание по UART
+
+
 = *Код*
 
 ===  InterruptHandler
