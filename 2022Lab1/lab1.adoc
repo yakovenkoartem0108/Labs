@@ -36,13 +36,6 @@
 * *ISR* - Interrupt Clear Pending Register. Сбросить прерывание с ожидания.
 * *AVR* - Interrupt active bit registers. Регистр показывающий активно ли в данный момент прерывание. Автоматически ставится когда мы попадаем в обработчик и автоматом же снимается когда мы уходим из него. Этот регистр можно только читать.
 
-=  *Задания* +
-
-=== *Задание 1*:
-
-=== *Задание 2*:
-
-
 
 =  *Ход работы* +
 
@@ -64,7 +57,7 @@
  
 
 [source, cpp]
- InterruptHandler::Timer2Handler,         //TIM2  
+ InterruptHandler::Timer2Handler,         //TIM2 28 
  
 
 === Разрешим глобальное прерывание таймера 3 +
@@ -102,7 +95,10 @@ static void DummyHandler() { for(;;) {} }
 
 
 
+= *Результат* 
 
+.Результат программы
+image::a10.gif[300,300]
 
 
 
@@ -112,14 +108,89 @@ static void DummyHandler() { for(;;) {} }
 
 Перед началом написания кода нам надо продумать архитектуру, которую мы будем воплащать. Для этого воспользуемся StarUML.
 
-.Архитектура и взаимодействие классов в StarUML.
-image::a9.png[600,600]
+.Архитектура и взаимодействие класса в StarUML.
+image::image.png[]
 
 
-= *Прерывание по UART
+= *Передача сообщений по USART через прерывание*
+Задача: передавать сообщение "Hello world". Нужно разрешить прерывание при передаче первой буквы и запретить его при передаче последней. Отправляя в регистор данных каждую последующую букву. +
+Перед тем как послать сообщение, строку нужно скопировать во внутренний буфер. Мы будем посылать из буфера только первый символ, а остальные через прерывание, вызывая OnByteTransmimit(). Передача длится пока строка не заполнится до нижного размера, тогда передача уже запрещается и её можно начать заного. +
+
+=== Создадим класс, который мы описали в StarUML.
+
+[source, cpp]
+#pragma once
+#include <string>  // for std::string
+#include <array>  // for std::array
+class MessageTransmitter
+{
+public:
+  static void Send(std::string& message); // Передача ссылки на строку
+  static void OnByteTransmimit();
+private:
+  static std::array<uint8_t, 255> buffer;
+  inline static size_t byteCounter = 0U;
+  inline static size_t messageLenght = 0U;
+};
 
 
-= *Код*
+=== Реализация метода
+ 
+[source, cpp]
+#include "messagetransmitter.h"
+#include "usart2register.hpp"
+void MessageTransmitter::Send(const std::string& message) // Реализация метода Send
+{
+  //Скопировать строку в буфер
+  std::copy_n(message.begin()/ message.size(), buffer.begin());
+  byteCounter = 0;
+  USART2::DR:Write(buffer[byteCounter]); 
+  USART2::CR1::TE::Enable::Set(); //Разрешение передачи
+  USART2::CR1::TXEIE::Enable::Set(); //Разрешение прерывания по опустошении регистра передачи
+  byteCounter++;
+}
+void MessageTransmitter::OnByteTransmit() // Реализация метода OnByteTransmit
+{
+  if(byteCounter <= messageLenght) // Делаем прерывание каждый раз, когда выводим байт
+  {
+    USART2::DR:Write(buffer[byteCounter]); // Разрешаем записать следующий байт
+    byteCounter++;
+  }
+  else
+  {
+    USART2::CR1::TE::Disable::Set(); //Запрещаем передачу
+    USART2::CR1::TXEIE::Disable::Set(); //Запрещаем прерывание по опустошении регистра передачи
+  }
+}
+
+=== Устанавливаем в обработчик прерываний
+
+[source, cpp]
+class InterruptHandler {
+public:
+static void Usart2Handler()
+    {
+      if( USART2::SR::UIF::UpdatePending::Isset()) //Проверка флага по опустошению регистра передачи
+      {
+        MessageTransmitter::OnByteTransmit();  //Вызов функции OnByteTransmit()
+      }
+    }
+};
+
+Вставим обработчик прерываний в файле startup:
+ 
+
+[source, cpp]
+ InterruptHandler::Timer2Handler,  //37
+ InterruptHandler::Usart2Handler,  //USART2 38 
+ 
+
+= *Результат программы* 
+
+.Результат программы
+image::a10.gif[300,300]
+
+= *Код программы*
 
 ===  InterruptHandler
 
@@ -160,25 +231,6 @@ class InterruptHandler {
 };
 #endif
 
-=== Виртуальные классы
-
-Для начала создадим класс:
-
-[source, cpp]
-#pragma once
-#include <string> 
-class MessageTransmitter
-{
-public:
-  void Send(std::string& message);
-  void OnByteTransmimit();
-private:
-  static std::array<uint8_t, 255> buffer;
-  inline static size_t byteCounter = 0U;
-  inline static size_t messageLenght = 0U;
-};
-
-
 
 === Main.cpp
 
@@ -189,6 +241,7 @@ private:
 #include "tim2registers.hpp"   //for TIM2
 #include "nvicregisters.hpp"  //for NVIC
 #include "tim3registers.hpp"  //for TIM3
+#include "usart2register.hpp"
 using namespace std ;
 constexpr auto SystemClock = 16'000'000U;
 constexpr auto TimerClock = 1'000U;
@@ -225,6 +278,10 @@ int __low_level_init(void)
     TIM3::DIER::UIE::Enable::Set();
     GPIOA::MODER::MODER2::Alternate::Set();
     GPIOA::MODER::MODER3::Alternate::Set();
+    //Подключаем USART2 к системе тактирования АРВ1
+    USART2::CR1::OVER8::OversamplingBy16::Set();
+    USART2::CR1::M::Data8bits::Set();
+    USART2::CR1::PCE::ParityControlDisable::Set();
   return 1;
 }
 }
@@ -251,9 +308,6 @@ int main()
 }
 
 
-= *Результат* 
 
-.Результат программы
-image::a10.gif[300,300]
 
 
