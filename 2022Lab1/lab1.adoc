@@ -98,7 +98,7 @@ static void DummyHandler() { for(;;) {} }
 = *Результат* 
 
 .Результат программы
-image::a10.gif[300,300]
+image::lab1-2022.gif[300,300]
 
 
 
@@ -184,11 +184,6 @@ static void Usart2Handler()
  InterruptHandler::Timer2Handler,  //37
  InterruptHandler::Usart2Handler,  //USART2 38 
  
-
-= *Результат программы* 
-
-.Результат программы
-image::a10.gif[300,300]
 
 = *Код программы*
 
