@@ -266,7 +266,8 @@ if (buttonEvent.Wait() != 0)
 
 
 Используем конструкцию MailBox, для передачи сообщения. Это шаблонный класс передаёт тип и размер. Используем его в классе Buttontask. Передаём ссылку на объект 
-ButtonMailBox.Put(myMessage); в данном случае myMessage. И зададим значение int myMessage = 1 в buttontask.h
+ButtonMailBox.Put(myMessage); в данном случае myMessage. +
+И зададим значение int myMessage = 1 в buttontask.h
 
 = *Результат* 
 
