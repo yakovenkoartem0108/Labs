@@ -283,9 +283,8 @@ myfirsttask.h
 class MyFirstTask: public OsWrapper::Thread<200>
 {
 public: 
-  void Execute() override; // pereopredelyaem virtyal metod
+  void Execute() override; // передаём виртуальный метод
 };
-
 
 myfirsttask.cpp
 
@@ -312,7 +311,7 @@ mysecondtask.h
 class MySecondTask: public OsWrapper::Thread<200>
 {
 public: 
-  void Execute() override; // pereopredelyaem virtyal metod
+  void Execute() override; // передаём виртуальный метод
 };
 
 
