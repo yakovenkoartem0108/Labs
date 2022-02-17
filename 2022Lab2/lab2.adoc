@@ -264,6 +264,12 @@ public:
 [source, cpp]
 if (buttonEvent.Wait() != 0)
 
+= *Результат* 
+
+.Результат программы
+image::2laba2022.gif[300,300]
+
+
 = *Код программы*
 
 === Класс MyFirstTask
@@ -403,14 +409,16 @@ GPIOC::ODR::ODR9::Low::Set();
 === main
 
 [source, cpp]
-#include "rtos.hpp"         // for Rtos Dlya podklychenia OC
+#include "rtos.hpp"         // for Rtos
 #include "mailbox.hpp"      // for Mailbox
 #include "event.hpp"        // for Event
 #include "mytask.hpp"       // for MyTask
 #include "led1task.hpp"     // for Led1Task
-#include "myfirsttask.h" // for MyFirstTask
-#include "buttontask.h"  //for ButtonTask
 #include "rccregisters.hpp" // for RCC
+#include "myfirsttask.h" // for MyFirstTask
+#include "mysecondtask.h" // for MyFirstTask
+#include "buttontask.h" // for MyFirstTask
+#include "ledtask.h"     // for LedTask
 #include "Application/Diagnostic/GlobalStatus.hpp"
 #include <gpioaregisters.hpp>  // for GPIOA
 #include <gpiocregisters.hpp>  // for GPIOC
@@ -440,9 +448,10 @@ int __low_level_init(void)
   return 1;
 }
 }
-OsWrapper::Event event{500ms, 1};
-MyTask myTask(event, UserButton::GetInstance()); // sosdali obiekt atogo classa
-Led1Task led1Task(event, LedsController::GetInstance());
+OsWrapper::Event ButtonEvent{500ms, 1}; 
+OsWrapper::MailBox<int,1> ButtonMailBox;
+ButtonTask buttonTask(ButtonMailBox);
+LedTask ledTask(ButtonMailBox);
 OsWrapper::Event buttonEvent{500ms, 1}; // Событие для отправки. Вркмя ожидания отправки
 ButtonTask buttonTask(buttonEvent) // Передаем информацию(ссылку)
 MyFirstTask myFirstTask;
@@ -455,7 +464,7 @@ int main()
   Rtos::CreateThread(mySecondTask, "MySecondTask", ThreadPriority::highest);
   Rtos::CreateThread(buttonTask, "ButtonTask", ThreadPriority::normal); 
   Rtos::CreateThread(ledTask, "LedTask", ThreadPriority::normal);
-  Rtos::Start(); // Visov sapyska OS
+  Rtos::Start(); // вызов запуска OS
   return 0;
 }
 
