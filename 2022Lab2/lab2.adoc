@@ -264,6 +264,10 @@ public:
 [source, cpp]
 if (buttonEvent.Wait() != 0)
 
+
+Используем конструкцию MailBox, для передачи сообщения. Это шаблонный класс передаёт тип и размер. Используем его в классе Buttontask. Передаём ссылку на объект 
+ButtonMailBox.Put(myMessage); в данном случае myMessage. И зададим значение int myMessage = 1 в buttontask.h
+
 = *Результат* 
 
 .Результат программы
@@ -340,12 +344,13 @@ buttontask.h
 class ButtonTask: public OsWrapper::Thread<100>
 {
 public:
-  ButtonTask (OsWrapper::Event& event): buttonEvent(event)
+  ButtonTask (OsWrapper::MailBox<int, 1>& mailBox): buttonMailBox(mailBox)
   {
   }
   void Execute() override;
 private:
-  OsWrapper::Event& buttonEvent;
+  OsWrapper::MailBox<int, 1>& buttonmailBox;
+  int myMessage = 1;
 };
 
 
