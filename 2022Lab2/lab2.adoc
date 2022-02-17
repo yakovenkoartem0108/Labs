@@ -264,3 +264,198 @@ public:
 [source, cpp]
 if (buttonEvent.Wait() != 0)
 
+= *Код программы*
+
+=== Класс MyFirstTask
+
+myfirsttask.h
+
+[source, cpp]
+#pragma once
+#include "event.hpp"
+#include "thread.hpp" // for Thread
+class MyFirstTask: public OsWrapper::Thread<200>
+{
+public: 
+  void Execute() override; // pereopredelyaem virtyal metod
+};
+
+
+myfirsttask.cpp
+
+[source, cpp]
+#include "myfirsttask.h"
+#include "gpiocregisters.hpp" // for GPIOC
+void MyFirstTask:: Execute()
+{
+  for(;;)
+  {
+    GPIOC::ODR::Toggle(1U << 8U);
+    Sleep(1000ms);
+  }
+}
+
+=== Класс MySecondTask
+
+mysecondtask.h
+
+[source, cpp]
+#pragma once
+#include "event.hpp"
+#include "thread.hpp" // for Thread
+class MySecondTask: public OsWrapper::Thread<200>
+{
+public: 
+  void Execute() override; // pereopredelyaem virtyal metod
+};
+
+
+mysecondtask.cpp
+
+[source, cpp]
+#include "mysecondtask.h"
+#include "gpiocregisters.hpp"
+void MySecondTask::Execute()
+{
+  for(;;)
+  {
+    GPIOC::ODR::Toggle(1U << 5U);
+    SleepUntil(500ms);
+  }
+}
+
+=== Класс Buttontask
+
+buttontask.h
+
+[source, cpp]
+#pragma once
+#include "event.hpp"
+#include "thread.hpp" //for Thread
+class ButtonTask: public OsWrapper::Thread<100>
+{
+public:
+  ButtonTask (OsWrapper::Event& event): buttonEvent(event)
+  {
+  }
+  void Execute() override;
+private:
+  OsWrapper::Event& buttonEvent;
+};
+
+
+buttontask.cpp
+
+[source, cpp]
+#include "buttontask.h"
+#include "gpiocregisters.hpp"
+void ButtonTask::Execute()
+{
+  for(;;)
+  {
+    if(GPIOC::IDR::IDR13::Low::IsSet()) //Проверяем нажата ли кнопка
+    {
+    ButtonMailBox.Put(myMessage);
+    }
+    Sleep(100ms);
+  }
+}
+
+=== Класс LedTask
+
+ledtask.h
+
+[source, cpp]
+#pragma once
+#include "thread.hpp"
+#include "event.hpp"
+class LedTask : public OsWrapper::Thread<200>
+{
+public:
+LedTask(OsWrapper::Event& event) : buttonEvent(event)
+{
+}
+void Execute() override;
+private:
+OsWrapper::Event& buttonEvent;
+};
+
+
+ledtask.cpp
+
+[source, cpp]
+#include "ledtask.h"
+#include "gpiocregisters.hpp".h"
+void LedTask::Execute()
+{
+for(;;)
+{
+if (buttonEvent.Wait() != 0)
+{
+GPIOC::ODR::ODR9::High::Set();
+Sleep(100ms);
+}
+GPIOC::ODR::ODR9::Low::Set();
+}
+} ;
+
+
+=== main
+
+[source, cpp]
+#include "rtos.hpp"         // for Rtos Dlya podklychenia OC
+#include "mailbox.hpp"      // for Mailbox
+#include "event.hpp"        // for Event
+#include "mytask.hpp"       // for MyTask
+#include "led1task.hpp"     // for Led1Task
+#include "myfirsttask.h" // for MyFirstTask
+#include "buttontask.h"  //for ButtonTask
+#include "rccregisters.hpp" // for RCC
+#include "Application/Diagnostic/GlobalStatus.hpp"
+#include <gpioaregisters.hpp>  // for GPIOA
+#include <gpiocregisters.hpp>  // for GPIOC
+std::uint32_t SystemCoreClock = 16'000'000U;
+extern "C" {
+int __low_level_init(void)
+{
+  RCC::CR::HSION::On::Set();
+  while (RCC::CR::HSIRDY::NotReady::IsSet())
+  {
+  }
+  RCC::CFGR::SW::Hsi::Set();
+  while (!RCC::CFGR::SWS::Hsi::IsSet())
+ {
+  }
+  RCC::AHB1ENRPack<
+      RCC::AHB1ENR::GPIOCEN::Enable,
+      RCC::AHB1ENR::GPIOAEN::Enable
+  >::Set();
+  RCC::APB2ENR::SYSCFGEN::Enable::Set();
+  GPIOA::MODER::MODER5::Output::Set();
+  GPIOC::MODERPack<
+      GPIOC::MODER::MODER5::Output,
+      GPIOC::MODER::MODER8::Output,
+      GPIOC::MODER::MODER9::Output
+  >::Set();
+  return 1;
+}
+}
+OsWrapper::Event event{500ms, 1};
+MyTask myTask(event, UserButton::GetInstance()); // sosdali obiekt atogo classa
+Led1Task led1Task(event, LedsController::GetInstance());
+OsWrapper::Event buttonEvent{500ms, 1}; // Событие для отправки. Вркмя ожидания отправки
+ButtonTask buttonTask(buttonEvent) // Передаем информацию(ссылку)
+MyFirstTask myFirstTask;
+MySecondTask mySecondTask;
+LedTask ledTask(ButtonEvent);
+int main()
+{
+  using namespace OsWrapper;
+  Rtos::CreateThread(myFirstTask, "myFirstTask", ThreadPriority::highest); 
+  Rtos::CreateThread(mySecondTask, "MySecondTask", ThreadPriority::highest);
+  Rtos::CreateThread(buttonTask, "ButtonTask", ThreadPriority::normal); 
+  Rtos::CreateThread(ledTask, "LedTask", ThreadPriority::normal);
+  Rtos::Start(); // Visov sapyska OS
+  return 0;
+}
+
