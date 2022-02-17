@@ -132,9 +132,70 @@ API функции управления задачами, кратко. Аргу
 * *vTaskDelay(N)* - эта функция вызывает диспетчер, который переводит задачу в WAIT на N системных тиков. Можно на ней лепить всякие простые задержки, вроде опроса кнопок.
 * *vTaskDelayUntil(N)* - функция аналогичная предыдущей, но считает время Т не от момента ее срабатывания, а от момента прошлого пробуждения задачи.
 
+= *Схема в StarUML*
+
+Перед началом написания кода нам надо продумать архитектуру, которую мы будем воплащать. Для этого воспользуемся StarUML.
+
+.Архитектура и взаимодействие класса в StarUML.
+image::image.png[]
 
 
+=  *Ход работы* +
+Первым делом подключаем операционную систему, прописываем в main.cpp
+
+[source, cpp]
+#include "rtos.hpp"         // for Rtos для подключения OC
+
+в самом rtos.hpp есть функция создания потока(задачи)
+
+[source, cpp]
+ __forceinline template<typename T >
+    static void CreateThread(T& thread, const char *pName, ThreadPriority prior = ThreadPriority::normal)
+    {
+      return RtosWrapper::wCreateThread<Rtos>(thread, pName, prior, thread.stackDepth, thread.stack.data());
+    }
+
+А так же система запуска ОС
+
+[source, cpp]
+__forceinline static inline void Start()
+    {
+      RtosWrapper::wStart();
+    }
+
+В прописываем вызов создания задачи, с выбранным приоритетом, и вызов запуска.
+
+[source, cpp]
+int main()
+{
+  using namespace OsWrapper;
+  Rtos::CreateThread(myFirstTask, "myFirstTask", ThreadPriority::highest); // Задаем приоритет, в данном случае высокий
+  Rtos::CreateThread(mySecondTask, "MySecondTask", ThreadPriority::highest);
+  Rtos::CreateThread(buttonTask, "ButtonTask", ThreadPriority::normal); 
+  Rtos::CreateThread(ledTask, "LedTask", ThreadPriority::normal);
+  Rtos::Start(); // Вызов запуска ОС
+  return 0;
+}
 
 
+Дальше нужно сделать задачу в нашем случае это класс. Каждый класс должен наследовать интерфейс Thread с различными функциями, к примеру Sleep и Signal. В нём нужно указать размер стека задач.
+
+[source, cpp]
+class MyTask : public OsWrapper::Thread<static_cast<std::size_t>(OsWrapper::StackDepth::minimal)> //  в шаблоне нужно указать размер стека для задачи, к примеру 200 байт.
+
+
+Так же в каждой задача должен быть метод Execute, определяет то что делает наша задача.
+
+[source, cpp]
+#include "myfirsttask.h"
+#include "gpiocregisters.hpp" // for GPIOC
+void MyFirstTask:: Execute()
+{
+  for(;;)
+  {
+    GPIOC::ODR::Toggle(1 << 8);
+    Sleep(1000ms);
+  }
+}
 
 
