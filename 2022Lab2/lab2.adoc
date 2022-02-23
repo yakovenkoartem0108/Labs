@@ -317,23 +317,25 @@ void ButtonTask::Execute()
 
 === LedTask  
    
-Класс LedTask должен ожидать прихода события EventButtonPress и если оно пришло, то переключить светодиод.
+Класс LedTask должен ожидать прихода события MailBoxButtonPress и если оно пришло, то переключить светодиод.
 
-Опишем конструктор класса LedTask, используя Event и переопределим метод Execute.
+Опишем конструктор класса LedTask, используя MailBox и переопределим метод Execute.
 
 [source, cpp]
 #pragma once
 #include "thread.hpp"
 #include "event.hpp"
+#include "mailbox.hpp" //for MailBox
 class LedTask : public OsWrapper::Thread<200>
 {
 public:
-LedTask(OsWrapper::Event& event) : buttonEvent(event)
+LedTask(OsWrapper::MailBox<int, 1>& mailBox): buttonMailBox(mailBox)
 {
 }
 void Execute() override;
 private:
-OsWrapper::Event& buttonEvent;
+OsWrapper::MailBox<int, 1>& buttonMailBox;
+  int myMessage = 1;
 };
 
 
@@ -346,12 +348,11 @@ void LedTask::Execute()
 {
 for(;;)
 {
-if (buttonEvent.Wait() != 0)
+if(buttonMailBox.Get(myMessage, 500ms)) 
 {
 GPIOC::ODR::ODR9::High::Set();
-Sleep(100ms);
 }
-GPIOC::ODR::ODR9::Low::Set();
+Sleep(100ms);
 }
 } ;
 
