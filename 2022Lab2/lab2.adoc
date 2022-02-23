@@ -107,7 +107,6 @@ image::imlab2,1.PNG[600, 600]
 * *WAIT* Задача в спячке. 
 * *SUSPEND* Выключено.
 
-Задачу можно удалить (в FreeRTOS командой vTaskDelete(…)).
 
 .Схема работы Задачи
 image::imlab2,2.PNG[600, 600]
@@ -313,8 +312,10 @@ void ButtonTask::Execute()
   }
 }
 
-    
- === LedTask  
+
+
+
+=== LedTask  
    
 Класс LedTask должен ожидать прихода события EventButtonPress и если оно пришло, то переключить светодиод.
 
