@@ -271,7 +271,7 @@ image::kr4.png[300, 300]
 "Давление: " XXX.XX [мм рт.ст.] +
 "Влажность: " XXX.XX [%] +
 "Температура: " XXX.XX [℃] +
-"Точка росы": " XXX.XX C" +
+"Точка росы": " XXX.XX [℃] +
 
 === Для подключения модуля BlueTooth должна использоваться плата Accessories Shield или I/O Expansion Shield
 
