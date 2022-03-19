@@ -201,7 +201,7 @@ image::kr11.png[]
 
 
 
-Часть инициализации использования SPI для датчика BME280 заключается в следующем:
+Часть инициализации использования SPI для датчика BME280, с использованием библиотеки предоставленной Bosch Sensortec, заключается в следующем:
 
 [source, cpp]
 struct bme280_dev dev;
@@ -215,12 +215,88 @@ dev.delay_ms = user_delay_ms;
 rslt = bme280_init(&dev);
 
 
+Среди них bme280_dev - это структура устройства BME280, приведенная в официальной библиотеке. Он используется для инициализации и сбора данных. Реализует следующие функции:
+
+[source, cpp]
+user_spi_read()
+user_spi_write()
+user_delay_ms()
 
 
+Функция считывания данных BME280:
+
+[source, cpp]
+int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev)
+int8_t stream_sensor_data_normal_mode(struct bme280_dev *dev)
 
 
+все вышеперечисленные функции вызывают функцию вывода:
+
+[source, cpp]
+void print_sensor_data(struct bme280_data *comp_data)
 
 
+Идеи реализации функций, чтения SPI, записи SPI заключаются в следующем:
+
+
+[source, cpp]
+void user_delay_ms(uint32_t period)
+{
+    /*
+     * Return control or wait,
+     * for a period amount of milliseconds
+     */
+}
+int8_t user_spi_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16_t len)
+{
+    int8_t rslt = 0; /* Return 0 for Success, non-zero for failure */
+    /*
+     * The parameter dev_id can be used as a variable to select which Chip Select pin has
+     * to be set low to activate the relevant device on the SPI bus
+     */
+    /*
+     * Data on the bus should be like
+     * |----------------+---------------------+-------------|
+     * | MOSI           | MISO                | Chip Select |
+     * |----------------+---------------------|-------------|
+     * | (don't care)   | (don't care)        | HIGH        |
+     * | (reg_addr)     | (don't care)        | LOW         |
+     * | (don't care)   | (reg_data[0])       | LOW         |
+     * | (....)         | (....)              | LOW         |
+     * | (don't care)   | (reg_data[len - 1]) | LOW         |
+     * | (don't care)   | (don't care)        | HIGH        |
+     * |----------------+---------------------|-------------|
+     */
+    return rslt;
+}
+int8_t user_spi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16_t len)
+{
+    int8_t rslt = 0; /* Return 0 for Success, non-zero for failure */
+    /*
+     * The parameter dev_id can be used as a variable to select which Chip Select pin has
+     * to be set low to activate the relevant device on the SPI bus
+     */
+    /*
+     * Data on the bus should be like
+     * |---------------------+--------------+-------------|
+     * | MOSI                | MISO         | Chip Select |
+     * |---------------------+--------------|-------------|
+     * | (don't care)        | (don't care) | HIGH        |
+     * | (reg_addr)          | (don't care) | LOW         |
+     * | (reg_data[0])       | (don't care) | LOW         |
+     * | (....)              | (....)       | LOW         |
+     * | (reg_data[len - 1]) | (don't care) | LOW         |
+     * | (don't care)        | (don't care) | HIGH        |
+     * |---------------------+--------------|-------------|
+     */
+    return rslt;
+}
+
+Подводя итог, на основе официальной библиотеки, основной процесс получения данных BME280 для различных платформ выглядит следующим образом:
+
+Шаг 1: Инициализация системы и периферийных устройств. +
+Шаг 2: Реализуйте функции чтения SPI, записи SPI, задержки на разных платформах, назначьте указатель функции переменной-члену структуры bme280_dev и передайте указатель структуры для инициализации и после этого можно инициализировать устройство BME280. +
+Шаг 3: Вызовите int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev) или функцию int8_t stream_sensor_data_normal_mode(struct bme280_dev *dev) получает данные датчика BME280 и выводит их на главный компьютер или консоль. +
 
 
 
