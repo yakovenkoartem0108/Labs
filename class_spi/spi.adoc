@@ -77,23 +77,23 @@ image::kr11.png[]
 *Методы SendByte() и ReadByte()* получают и передают данные в буфер.
 Регистр данных разделен на 2 буфера - один для записи (буфер передачи) и другой для чтения (буфер приема). Запись в регистр данных приведет к записи в буфер Tx, а считывание из регистра данных вернет значение, хранящееся в буфере Rx.
 
-image::sp1.png[]
+image::sp1.png[500, 500]
 
 *Методы TransmiteBufEmptyInterruptEnable(), TransmiteBufEmptyInterruptDisable()* отвечают за включение прерывания с пустым буфером Tx.
 
-image::sp2.png[]
+image::sp2.png[500, 500]
 
 Используется для генерации запроса на прерывание, когда установлен флаг TXE.
 
 
 *Методы ReceiveBufNotEmptyInterruptEnable() и ReceiveBufNotEmptyInterruptDisable()* отвечают за разрешение прерывания при заполнении буфера RX.
 
-image::sp3.png[]
+image::sp3.png[500, 500]
 
 
 *Метод TransmittionCompleted()* отвечает за завершение передачи данных, проверяет происходит ли передача данных и пуст ли Tx буфер.
 
-image::sp4.png[]
+image::sp4.png[500, 500]
 
 *Метод SpiInterruptHandler* обрабатывает прерывания буфера Rx и Tx и перенаправляет их в методы OnNextByte.
 
