@@ -100,20 +100,20 @@ BME280 – высокоточный метеодатчик, измеряющий
 | Земля
 
 | MOSI
-| PA7		
+| PB5		
 | SPI data input
 
 | SCK
-| PA5		
+| PB3		
 | SPI clock input
 
 
 | MISO
-| PA6		
+| PB4		
 | SPI data output
 
 | CS	
-| PB6
+| PB10
 | Выбор чипа SPI, активный при низком напряжении
 
 |===
