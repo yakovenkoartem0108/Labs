@@ -607,69 +607,69 @@ image::kr29.png[600, 600]
 #pragma once
 enum class Unit
 {
-C,
-hPa,
-percent
+  C,
+  hPa,
+  percent
 };
 class Measurement
 {
 protected:
-double(*DataSourceFcn)();
+  double(*DataSourceFcn)();
 public:  
-const Unit *const units;
-const std::size_t countOfUnits;
-const Unit defaultUnit;
-std::string quantityName;
-Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
-quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
-{
-assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
-}
-Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
-quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
-{
-}
-virtual double GetValue()
-{
-return DataSourceFcn();
-}
-virtual double GetValue(Unit unit)
-{
-assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
-return DataSourceFcn();
-}
-bool CheckUnit(Unit unit)
-{
-bool flag=false;
-for(int i=0;i<countOfUnits;i++)
-{
-if(unit==units[i])
-{
-flag=true;
-}
-}
-return flag;
-}
-static string ShowUnitName(Unit unit)
-{
-string str;
-switch(unit)
-{  
-case Unit::C:
-str = "C";
-break;
-case Unit::hPa:
-str = "hPa";
-break;
-case Unit::percent:
-str = "%";
-break;  
-default:
-assert(false &&" unit must match measurement's units");
-break;
-}
-return str;
-}
+  const Unit *const units;
+  const std::size_t countOfUnits;
+  const Unit defaultUnit;
+  std::string quantityName;
+  Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
+    quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
+  {
+    assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
+  }
+  Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
+    quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
+  {
+  } 
+  virtual double GetValue()
+  {
+    return DataSourceFcn();
+  }
+  virtual double GetValue(Unit unit)
+  {
+    assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
+    return DataSourceFcn();
+  }
+  bool CheckUnit(Unit unit)
+  {
+    bool flag=false;
+    for(int i=0;i<countOfUnits;i++)
+    {
+      if(unit==units[i])
+      {
+        flag=true;
+      }
+    }
+    return flag;
+  }  
+  static string ShowUnitName(Unit unit)
+  {
+    string str;
+    switch(unit)
+    {  
+    case Unit::C:
+      str = "C";
+      break;
+    case Unit::hPa:
+      str = "hPa";
+      break;
+    case Unit::percent:
+      str = "%";
+      break;  
+    default:
+      assert(false &&" unit must match measurement's units");
+      break;
+    }
+    return str;
+  }
 };
 
 ==== measurementConfig.h
@@ -681,19 +681,19 @@ return str;
 #include "bme280driverconfig.h"
 double fcnTemp()
 {
-return bme280.GetTemperature();
+  return bme280.GetTemperature();
 };
 double fcnPress()
 {
-return bme280.GetPressure();
+  return bme280.GetPressure();
 };
 double fcnHum()
 {
-return bme280.GetHumidity();
+  return bme280.GetHumidity();
 };
 double fcnDewP()
 {
-return bme280.GetDewPoint();
+  return bme280.GetDewPoint();
 };
 inline Temperature temperature("Temperature", fcnTemp);
 inline Measurement pressure("Pressure", Unit::hPa, fcnPress);
@@ -959,7 +959,7 @@ public:
 ==== BME280DriverConfig.h
 
 [source, cpp]
- #pragma once
+#pragma once
 #include "BME280Driver.h"
 #include "spiconfig.h"
 #include "pinsconfig.h"
@@ -983,73 +983,74 @@ image::kr36.png[]
 #include "usart1registers.hpp"
 struct UsartConfig
 {
-UsartConfig();
+  UsartConfig();
 };
 template<typename USARTx, auto& tranceiver>
 class USART
 {
-static UsartConfig config;
-public:
-static void Config(UsartConfig config);
-static void SendByte(uint8_t byte)
-{
-USARTx::DR::Write(byte);
-}
-static uint8_t ReadByte()
-{
-return USARTx::DR::Get();
-}
-static void TransmiteEnable()
-{
-USARTx::CR1::TE::Enable::Set();
-}
-static void TransmiteBufEmptyInterruptEnable()
-{
-USARTx::CR1::TXEIE::InterruptWhenTXE::Set();
-}  
-static void TransmiteDisable()
-{
-USARTx::CR1::TE::Disable::Set();
-}
-static void TransmiteBufEmptyInterruptDisable()
-{
-USARTx::CR1::TXEIE::InterruptInhibited::Set();
-} 
-static void ReceiveEnable()
-{
-USARTx::CR1::RE::Enable::Set();
-}
-static void ReceiveDisable()
-{
-USARTx::CR1::RE::Disable::Set();
-}
-static void EndOfTransmittingEnable()
-{
-USARTx::CR1::IDLEIE::Interrupt::Set();
-}
-static void EndOfTransmittingDisable()
-{
-USARTx::CR1::IDLEIE::InterruptInhibited::Set();
-}
-static bool TransmitionCompleted()
-{
-return USARTx::SR::TC::TransmitionComplete::IsSet();
-}
-static void UsartInterruptHandler()
-{
-if(USARTx::SR::RXNE::DataRecieved::IsSet())
-{
-tranceiver.OnNextByteReceive();
-}
-if(USARTx::CR1::TE::Enable::IsSet()&&USART2::SR::TXE::DataRegisterEmpty::IsSet())
-{
-tranceiver.OnNextByteTransmite();
-}
-if(USARTx::CR1::IDLEIE::Interrupt::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
-{
-tranceiver.OnEndOfTransmitting();
-}
-}
+  static UsartConfig config; 
+public: 
+  static void Config(UsartConfig config);
+  
+  static void SendByte(uint8_t byte)
+  {
+    USARTx::DR::Write(byte);
+  }
+  static uint8_t ReadByte()
+  {
+    return USARTx::DR::Get();
+  }
+  static void TransmiteEnable()
+  {
+    USARTx::CR1::TE::Enable::Set();
+  }
+  static void TransmiteBufEmptyInterruptEnable()
+  {
+    USARTx::CR1::TXEIE::InterruptWhenTXE::Set();
+  }   
+  static void TransmiteDisable()
+  {
+    USARTx::CR1::TE::Disable::Set();
+  }
+  static void TransmiteBufEmptyInterruptDisable()
+  {
+    USARTx::CR1::TXEIE::InterruptInhibited::Set();
+  } 
+  static void ReceiveEnable()
+  {
+    USARTx::CR1::RE::Enable::Set();
+  }
+  static void ReceiveDisable()
+  {
+    USARTx::CR1::RE::Disable::Set();
+  }  
+  static void EndOfTransmittingEnable()
+  {
+    USARTx::CR1::IDLEIE::Interrupt::Set();
+  }
+  static void EndOfTransmittingDisable()
+  {
+    USARTx::CR1::IDLEIE::InterruptInhibited::Set();
+  }
+  static bool TransmitionCompleted()
+  {
+    return USARTx::SR::TC::TransmitionComplete::IsSet();
+  }
+  static void UsartInterruptHandler()
+  {
+    if(USARTx::SR::RXNE::DataRecieved::IsSet())
+    {
+      tranceiver.OnNextByteReceive();
+    }
+    if(USARTx::CR1::TE::Enable::IsSet()&&USART2::SR::TXE::DataRegisterEmpty::IsSet())
+    {
+      tranceiver.OnNextByteTransmite();
+    }
+    if(USARTx::CR1::IDLEIE::Interrupt::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
+    {
+      tranceiver.OnEndOfTransmitting();
+    }
+  }
 };
 
 ==== usartconfig.h
@@ -1071,71 +1072,72 @@ class usart2 : public  USART<USART2,bluetoothTransceiver> {};
 template<typename usart>
 class usartDriver
 {
-std::array<char,1024> transmiteBuf;
-std::array<char,1024> receiveBuf;
-uint32_t transmiteMessLength=0;
-uint32_t receiveMessLength=0;
-bool messageWasReceived=false;
-bool messageWasTransmited=false;
-uint32_t Rit=0;
-uint32_t Tit=0;
-public:
-void SendMessage(char* message, uint32_t size)
-{
-uint32_t L=size;
-if(transmiteBuf.size()<L) L=transmiteBuf.size();
-transmiteMessLength=L;
-std::memcpy(transmiteBuf.data(), message,L);
-usart::TransmiteEnable();
-usart::TransmiteBufEmptyInterruptEnable();
-messageWasTransmited=false;
-messageWasReceived=false;
-}
-void OnNextByteTransmite()
-{
-if(Tit<transmiteMessLength-1)
-{
-usart::SendByte(transmiteBuf[Tit++]);
-}
-else
-{
-usart::SendByte(transmiteBuf[Tit]);
-Tit=0;
-while(!usart::TransmitionCompleted())
-{
-}
-usart::TransmiteDisable();
-usart::TransmiteBufEmptyInterruptDisable();
-messageWasTransmited=true;
-}
-}
-void OnNextByteReceive()
-{
-uint8_t bf=usart::ReadByte();
-if(!messageWasReceived)
-{
-receiveBuf[Rit++]=bf;
-usart::EndOfTransmittingEnable();
-}
-}
-void OnEndOfTransmitting()
-{
-receiveMessLength=Rit;
-Rit=0;
-usart::EndOfTransmittingDisable();
-messageWasReceived=true;
-}
-bool MessageWasReceived()
-{
-return messageWasReceived;
-}
-void GetMessage(char* outBuf, std::size_t& length)
-{
-length=receiveMessLength;
-std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
-messageWasReceived=false;
-}
+  std::array<char,1024> transmiteBuf;
+  std::array<char,1024> receiveBuf;
+  uint32_t transmiteMessLength=0;
+  uint32_t receiveMessLength=0;
+  bool messageWasReceived=false;
+  bool messageWasTransmited=false;
+  uint32_t Rit=0;
+  uint32_t Tit=0;
+ public:
+  void SendMessage(char* message, uint32_t size)
+  {
+    uint32_t L=size;
+    if(transmiteBuf.size()<L) L=transmiteBuf.size();
+    transmiteMessLength=L;
+    std::memcpy(transmiteBuf.data(), message,L);
+    usart::TransmiteEnable();
+    usart::TransmiteBufEmptyInterruptEnable();
+    messageWasTransmited=false;
+    messageWasReceived=false;
+  } 
+  void OnNextByteTransmite()
+  {
+    if(Tit<transmiteMessLength-1)
+    {
+      usart::SendByte(transmiteBuf[Tit++]);
+    }
+    else
+    {
+      usart::SendByte(transmiteBuf[Tit]);
+      Tit=0;
+      while(!usart::TransmitionCompleted())
+      {
+      }
+      usart::TransmiteDisable();
+      usart::TransmiteBufEmptyInterruptDisable();
+      messageWasTransmited=true;
+    }
+  }
+  void OnNextByteReceive()
+  {
+    uint8_t bf=usart::ReadByte();
+    if(!messageWasReceived)
+    {
+      receiveBuf[Rit++]=bf;
+      usart::EndOfTransmittingEnable();
+    }
+  }
+  void OnEndOfTransmitting()
+  {
+    receiveMessLength=Rit;
+    Rit=0;
+    usart::EndOfTransmittingDisable();
+    messageWasReceived=true;
+  }
+   bool MessageWasReceived()
+   {
+     return messageWasReceived;
+   }
+  void GetMessage(char* outBuf, std::size_t& length)
+   {
+     length=receiveMessLength;
+     std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
+     messageWasReceived=false;
+   }
 };
+
 
 == Классы SPI, SpiDriver
 
@@ -1417,28 +1419,31 @@ image::kr38.png[]
 using namespace OsWrapper;
 class BluetoothTask:public Thread<400U>
 {
+  
 public:
-const std::chrono::milliseconds period = 1000ms;
-BluetoothTask(){}
-void Execute() override
-{
-for(;;)
-{    
-char transmittedMess[150]={0};
-size_t lengthTransmitedMess;
-for(int k=0;k<4;k++)
-{
-char str[100]={0};
-std::sprintf(str,"%11s : %5.2f %5s \n",measurements[k]->quantityName.c_str(),
-measurements[k]->GetValue(userUnits[k]),Measurement::ShowUnitName(userUnits[k]).c_str());
-strncat(transmittedMess,str,100);
-}
-lengthTransmitedMess = std::strlen(transmittedMess);
-bluetoothTransceiver.SendMessage(transmittedMess,lengthTransmitedMess);
-Led1::Toggle();
-Sleep(period);
-}
-}
+  const std::chrono::milliseconds period = 1000ms;
+  BluetoothTask()
+  {
+  }
+  void Execute() override
+  {
+    for(;;)
+    {    
+      char transmittedMess[150]={0};
+      size_t lengthTransmitedMess;     
+      for(int k=0;k<4;k++)
+      {
+        char str[100]={0};
+        std::sprintf(str,"%11s : %5.2f %5s \n",measurements[k]->quantityName.c_str(),
+                     measurements[k]->GetValue(userUnits[k]),Measurement::ShowUnitName(userUnits[k]).c_str());
+        strncat(transmittedMess,str,100);
+      }
+      lengthTransmitedMess = std::strlen(transmittedMess);
+      bluetoothTransceiver.SendMessage(transmittedMess,lengthTransmitedMess);
+      Led1::Toggle();
+      Sleep(period);
+    }
+  }
 };
 
 ==== MeasurementTask.h
@@ -1455,40 +1460,40 @@ template<auto& event>
 class MeasurementTask:public Thread<128U>
 {
 public:
-const std::chrono::milliseconds period = 100ms;
-void Execute() override
-{
-for(;;)
-{ 
-bme280.Measure();
-Led2::Toggle();
-Sleep(period);
-if (event.Wait() != 0)
-{
-UnitsUpdate();
-}
-}
-}
-void UnitsUpdate()
-{
-static int counter = 0;
-counter=(counter<2)?(counter+1):0;
-switch(counter)
-{
-case 0:
-userUnits[0]=Unit::F;
-userUnits[3]=Unit::F;
-break;
-case 1:
-userUnits[0]=Unit::K;
-userUnits[3]=Unit::K;
-break;
-case 2:
-userUnits[0]=Unit::C;
-userUnits[3]=Unit::C;
-break;
-}
-}
+  const std::chrono::milliseconds period = 100ms;
+  void Execute() override
+  {
+    for(;;)
+    { 
+      bme280.Measure();
+      Led2::Toggle();
+      Sleep(period);     
+      if (event.Wait() != 0)
+        {
+          UnitsUpdate();
+        }     
+    }
+  }  
+   void UnitsUpdate()
+  {
+    static int counter = 0;    
+    counter=(counter<2)?(counter+1):0;
+    switch(counter)
+    {
+    case 0:
+      userUnits[0]=Unit::F;
+      userUnits[3]=Unit::F;
+      break;
+    case 1:
+      userUnits[0]=Unit::K;
+      userUnits[3]=Unit::K;
+      break;
+    case 2:
+      userUnits[0]=Unit::C;
+      userUnits[3]=Unit::C;
+      break;
+    }
+  }
 };
 
 == Предусмотрим измерение температуры при нажатии кнопки
@@ -1517,115 +1522,115 @@ measurement.h
 #pragma once
 enum class Unit
 {
-K,
-F,
-C,
-hPa,
-percent
+  K,
+  F,
+  C,
+  hPa,
+  percent
 };
 class Measurement
 {
 protected:
-double(*DataSourceFcn)();
+  double(*DataSourceFcn)();
 public:  
-const Unit *const units;
-const std::size_t countOfUnits;
-const Unit defaultUnit;
-std::string quantityName;
-Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
-quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
-{
-assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
-}
-Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
-quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
-{
-}
-virtual double GetValue()
-{
-return DataSourceFcn();
-}
-virtual double GetValue(Unit unit)
-{
-assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
-return DataSourceFcn();
-}
-bool CheckUnit(Unit unit)
-{
-bool flag=false;
-for(int i=0;i<countOfUnits;i++)
-{
-if(unit==units[i])
-{
-flag=true;
-}
-}
-return flag;
-}
-static string ShowUnitName(Unit unit)
-{
-string str;
-switch(unit)
-{  
-case Unit::K:
-str = "K";
-break;
-case Unit::F:
-str = "F";
-break;
-case Unit::C:
-str = "C";
-break;
-case Unit::hPa:
-str = "hPa";
-break;
-case Unit::percent:
-str = "%";
-break;  
-default:
-assert(false &&" unit must match measurement's units");
-break;
-}
-return str;
-}
+  const Unit *const units;
+  const std::size_t countOfUnits;
+  const Unit defaultUnit;
+  std::string quantityName;
+  Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
+    quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
+  {
+    assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
+  }
+  Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
+    quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
+  {
+  }  
+  virtual double GetValue()
+  {
+    return DataSourceFcn();
+  }
+  virtual double GetValue(Unit unit)
+  {
+    assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
+    return DataSourceFcn();
+  }
+  bool CheckUnit(Unit unit)
+  {
+    bool flag=false;
+    for(int i=0;i<countOfUnits;i++)
+    {
+      if(unit==units[i])
+      {
+        flag=true;
+      }
+    }
+    return flag;
+  }  
+  static string ShowUnitName(Unit unit)
+  {
+    string str;
+    switch(unit)
+    {  
+    case Unit::K:
+      str = "K";
+      break;
+    case Unit::F:
+      str = "F";
+      break;
+    case Unit::C:
+      str = "C";
+      break;
+    case Unit::hPa:
+      str = "hPa";
+      break;
+    case Unit::percent:
+      str = "%";
+      break;  
+    default:
+      assert(false &&" unit must match measurement's units");
+      break;
+    }
+    return str;
+  }
 };
 
 Temperature.h
 
 [source, cpp]
-pragma once
+#pragma once
 #include "Measurement.h"
 #include <cassert>
 Unit temperatureUnits[3]={Unit::K,Unit::C,Unit::F};
 class Temperature: public Measurement
 {
 public:
-Temperature(string quantityName, double(*DataSourceFcn)())
-:Measurement(quantityName, temperatureUnits, 3, Unit::C, DataSourceFcn){}
-virtual double GetValue()
-{
-return DataSourceFcn();
-}
-virtual double GetValue(Unit unit)
-{
-double value;
-switch(unit)
-{
-case Unit::C:
-value = Measurement::GetValue();
-break;
-case Unit::K:
-value = GetValue()+273.15;
-break;
-case Unit::F:
-value = GetValue()*1.8+32.0;
-break;
-default:
-assert(false &&"unit must match measurement's units");
-break;
-}
-return value;
-}
+  Temperature(string quantityName, double(*DataSourceFcn)())
+    :Measurement(quantityName, temperatureUnits, 3, Unit::C, DataSourceFcn){}  
+  virtual double GetValue()
+  {
+    return DataSourceFcn();
+  }
+  virtual double GetValue(Unit unit)
+  {
+    double value;
+    switch(unit)
+    {
+    case Unit::C:
+      value = Measurement::GetValue();
+      break;
+    case Unit::K:
+      value = GetValue()+273.15;
+      break;
+    case Unit::F:
+      value = GetValue()*1.8+32.0;
+      break;
+    default:
+      assert(false &&"unit must match measurement's units");
+      break;
+    }
+    return value;
+  }
 };
 
 
@@ -1646,44 +1651,43 @@ template<typename Port, uint8_t number>
 class Pin
 {  
 public: 
-static void Toggle()
-{
-Port::Toggle(number);
-}
-static void Set()
-{
-Port::Set(1<<number);
-}
-static void Reset()
-{
-Port::Reset(1<<number);
-}
-static bool IsSet()
-{
-return Port::IsSet(number);
-}
-static uint8_t Get()
-{
-return IsSet()?1U:0U;
-}
-static void Enable()
-{
-if(!Port::IsEnable())Port::Enable();
-}
-static void SelectInputMode()
-{
-Port::ModeSet(number,Moder::Input);
-}
-static void SelectOutputMode()
-{
-Port::ModeSet(number,Moder::Output);
-}
-static void SelectMode(Moder moder)
-{
-Port::ModeSet(number,moder);
-}
-};
-
+  static void Toggle()
+  {
+    Port::Toggle(number);
+  }
+  static void Set()
+  {
+    Port::Set(1<<number);
+  }
+  static void Reset()
+  {
+    Port::Reset(1<<number);
+  }
+  static bool IsSet()
+  {
+    return Port::IsSet(number);
+  }
+  static uint8_t Get()
+  {
+    return IsSet()?1U:0U;
+  }
+  static void Enable()
+  {
+    if(!Port::IsEnable())Port::Enable();
+  }
+  static void SelectInputMode()
+  {
+    Port::ModeSet(number,Moder::Input);
+  }
+  static void SelectOutputMode()
+  {
+    Port::ModeSet(number,Moder::Output);
+  }
+  static void SelectMode(Moder moder)
+  {
+    Port::ModeSet(number,moder);
+  }
+}; 
 
 *PinConfig.h*
 
@@ -1714,10 +1718,11 @@ using PinBSYforEPD = Pin<PortC, 2>;
 #include "rccregisters.hpp" 
 enum Moder
 {
-Input=0,
-Output=1,
-Alternate=2,
-Analog=3,
+  Input=0,
+  Output=1,
+  Alternate=2,
+  Analog=3,
+  
 }; 
 template<typename PortType>
 struct AHB1ENR_of
@@ -1726,69 +1731,70 @@ struct AHB1ENR_of
 template<>
 struct AHB1ENR_of<GPIOC>
 {
-using Enable = RCC::AHB1ENR::GPIOCEN::Enable;
-using Disable = RCC::AHB1ENR::GPIOCEN::Disable;
+  using Enable = RCC::AHB1ENR::GPIOCEN::Enable;
+  using Disable = RCC::AHB1ENR::GPIOCEN::Disable;
 };
 template<>
 struct AHB1ENR_of<GPIOA>
 {
-using Enable = RCC::AHB1ENR::GPIOAEN::Enable;
-using Disable = RCC::AHB1ENR::GPIOAEN::Disable;
+  using Enable = RCC::AHB1ENR::GPIOAEN::Enable;
+  using Disable = RCC::AHB1ENR::GPIOAEN::Disable;
 };
 template<>
 struct AHB1ENR_of<GPIOB>
 {
-using Enable = RCC::AHB1ENR::GPIOBEN::Enable;
-using Disable = RCC::AHB1ENR::GPIOBEN::Disable;
+  using Enable = RCC::AHB1ENR::GPIOBEN::Enable;
+  using Disable = RCC::AHB1ENR::GPIOBEN::Disable;
 };
 template<typename Reg>
 class Port
 {
-public:  
-static void Toggle(uint8_t num) 
-{
-Reg::ODR::Toggle(1U << num);
-}
-static bool IsSet(uint8_t num)
-{
-return (Reg::IDR::Get()&(1<<num))!=0;
-}
-static uint32_t Get()
-{
-return Reg::IDR::Get();
-}
-static void Write(uint32_t value)
-{
-Reg::ODR::Write(value);
-}
-static void Set(uint32_t value) 
-{
-Reg::BSRR::Write(value);
-}
-static void Reset(uint32_t value) 
-{
-Reg::BSRR::Write(value<<16);
-}
-static void ModeSet(uint8_t num, Moder moder) 
-{
-auto value = Reg::MODER::Get();
-value &= ~(3U<<(num*2U));
-value |= moder<<(num*2U);
-Reg::MODER::Write(value);
-}
-static void Enable() 
-{
-AHB1ENR_of<Reg>::Enable::Set();
-}
-static void Disable() 
-{
-AHB1ENR_of<Reg>::Disable::Set();
-}
-static bool IsEnable() 
-{
-return AHB1ENR_of<Reg>::Enable::IsSet();
-}
-};
+ public:  
+  static void Toggle(uint8_t num) 
+  {
+    Reg::ODR::Toggle(1U << num);
+  }
+  static bool IsSet(uint8_t num)
+  {
+    return (Reg::IDR::Get()&(1<<num))!=0;
+  }
+  static uint32_t Get()
+  {
+    return Reg::IDR::Get();
+  }
+  static void Write(uint32_t value)
+  {
+    Reg::ODR::Write(value);
+  }
+  static void Set(uint32_t value) 
+  {
+    Reg::BSRR::Write(value);
+  }
+  static void Reset(uint32_t value) 
+  {
+    Reg::BSRR::Write(value<<16);
+  }
+  static void ModeSet(uint8_t num, Moder moder) 
+  {
+    auto value = Reg::MODER::Get();
+    value &= ~(3U<<(num*2U));
+    value |= moder<<(num*2U);
+    Reg::MODER::Write(value);
+  }
+  static void Enable() 
+  {
+    AHB1ENR_of<Reg>::Enable::Set();
+  }
+  static void Disable() 
+  {
+    AHB1ENR_of<Reg>::Disable::Set();
+  }
+  static bool IsEnable() 
+  {
+    return AHB1ENR_of<Reg>::Enable::IsSet();
+  }
+}; 
+
 
 *PortConfig.h*
 
@@ -1809,22 +1815,21 @@ class Button
 {
 public:
 static bool WasPressed()
-{
-if(!Pin::IsSet())
-{
-while(!Pin::IsSet());
-return true;
-}
-return false;
-}
+  {
+    if(!Pin::IsSet())
+     {
+       while(!Pin::IsSet());
+       return true;
+     }
+    return false;
+  }
 static void Enable()
 {
-Pin::Enable();
-Pin::SelectInputMode();
+  Pin::Enable();
+  Pin::SelectInputMode();
 }
 };
-using UserButton = Button<PinButton>;
-
+using UserButton = Button<PinButton>; 
 
 === Класс ButtonPressTask
 
@@ -1847,21 +1852,21 @@ template<typename Button, auto& event>
 class ButtonEventTask:public Thread<128U>
 {
 public:
-ButtonEventTask()
-{
-Button::Enable(); 
-}
-void Execute()
-{
-for(;;)
-{
-if (Button::WasPressed())
-{
-event.Signal();
-}
-Sleep(100ms);
-}
-}
+  ButtonEventTask()
+  {
+    Button::Enable(); 
+  }
+  void Execute()
+  {
+    for(;;)
+    {
+      if (Button::WasPressed())
+      {
+        event.Signal();       
+      }
+      Sleep(100ms);
+    }
+  }
 };
 
 == Main.cpp
@@ -1890,72 +1895,73 @@ std::uint32_t SystemCoreClock = 16'000'000U;
 #include <iostream>
 extern "C" {
 int __low_level_init(void)
-{
-//Switch on external 16 MHz oscillator
-RCC::CR::HSION::On::Set();
-while (RCC::CR::HSIRDY::NotReady::IsSet())
-{
-}
-//Switch system clock on external oscillator
-RCC::CFGR::SW::Hsi::Set();
-while (!RCC::CFGR::SWS::Hsi::IsSet())
-{
-}
-RCC::AHB1ENR::GPIOAEN::Enable::Set();
-//USART config
-RCC::APB1ENR::USART2EN::Enable::Set();
-GPIOA::MODER::MODER3::Alternate::Set();
-GPIOA::MODER::MODER2::Alternate::Set();
-GPIOA::AFRL::AFRL3::Af7::Set();
-GPIOA::AFRL::AFRL2::Af7::Set();
-GPIOA::PUPDR::PUPDR2::NoPullUpNoPullDown::Set();
-GPIOA::PUPDR::PUPDR3::PullUp::Set();
-USART2::CR1::OVER8::OversamplingBy16::Set();
-USART2::CR1::M::Data8bits::Set();
-USART2::CR2::STOP::OneStopBit::Set();
-USART2::CR1::PCE::ParityControlDisable::Set();
-USART2::CR1::RE::Enable::Set();
-NVIC::ISER1::Write(1<<6);
-USART2::CR1::RXNEIE::InterruptWhenRXNE::Set();
-constexpr uint32_t CLC = 16'000'000U;
-constexpr uint32_t BaudRate=9600;
-double UsartDivDouble = 1.0/(BaudRate*8*(2 - USART2::CR1::OVER8::Get()))*CLC;
-uint32_t UsartDivMantissa=UsartDivDouble;
-uint16_t UsartDivFraction=round((UsartDivDouble-UsartDivMantissa)*16);
-USART2::BRR::DIV_Mantissa::Set(UsartDivMantissa);
-USART2::BRR::DIV_Fraction::Set(UsartDivFraction);
-RCC::AHB1ENRPack<
-RCC::AHB1ENR::GPIOCEN::Enable,
-RCC::AHB1ENR::GPIOBEN::Enable,
-RCC::AHB1ENR::GPIOAEN::Enable
->::Set();
-//SPI1 config
-RCC::APB2ENR::SPI1EN::Enable::Set();
-NVIC::ISER1::Write(1<<3);
-SPI1::CR1::MSTR::Master::Set();
-SPI1::CR1::DFF::Data8bit::Set();
-SPI1::CR1::BR::PclockDiv2::Set();
-SPI1::CR1::CRCEN::CrcCalcDisable::Set();
-SPI1::CR1::CPOL::High::Set();
-SPI1::CR1::CPHA::Phase2edge::Set();
-SPI1::CR1::LSBFIRST::MsbFisrt::Set();
-SPI1::CR2::SSOE::SsOutputEnable::Set(); 
-SPI1::CR1::SSM::NssSoftwareEnable::Set();
-SPI1::CR1::SSI::Value1::Set();
-GPIOB::MODERPack<
-GPIOB::MODER::MODER3::Alternate, //sck
-GPIOB::MODER::MODER4::Alternate, //miso
-GPIOB::MODER::MODER5::Alternate, //mosi
-GPIOB::MODER::MODER10::Output,   //cs for bme280
->::Set();
-GPIOB::AFRLPack<
-GPIOB::AFRL::AFRL3::Af5,
-GPIOB::AFRL::AFRL4::Af5,
-GPIOB::AFRL::AFRL5::Af5,
->::Set();  
-GPIOB::BSRR::BS10::High::Write() ;
-return 1;
-}
+  {
+    //Switch on external 16 MHz oscillator
+    RCC::CR::HSION::On::Set();
+    while (RCC::CR::HSIRDY::NotReady::IsSet())
+    {
+      
+    }
+    //Switch system clock on external oscillator
+    RCC::CFGR::SW::Hsi::Set();
+    while (!RCC::CFGR::SWS::Hsi::IsSet())
+    {
+    }
+    RCC::AHB1ENR::GPIOAEN::Enable::Set();
+    //USART config
+    RCC::APB1ENR::USART2EN::Enable::Set();
+    GPIOA::MODER::MODER3::Alternate::Set();
+    GPIOA::MODER::MODER2::Alternate::Set();
+    GPIOA::AFRL::AFRL3::Af7::Set();
+    GPIOA::AFRL::AFRL2::Af7::Set();
+    GPIOA::PUPDR::PUPDR2::NoPullUpNoPullDown::Set();
+    GPIOA::PUPDR::PUPDR3::PullUp::Set();
+    USART2::CR1::OVER8::OversamplingBy16::Set();
+    USART2::CR1::M::Data8bits::Set();
+    USART2::CR2::STOP::OneStopBit::Set();
+    USART2::CR1::PCE::ParityControlDisable::Set();
+    USART2::CR1::RE::Enable::Set();
+    NVIC::ISER1::Write(1<<6);
+    USART2::CR1::RXNEIE::InterruptWhenRXNE::Set();
+    constexpr uint32_t CLC = 16'000'000U;
+    constexpr uint32_t BaudRate=9600;
+    double UsartDivDouble = 1.0/(BaudRate*8*(2 - USART2::CR1::OVER8::Get()))*CLC;
+    uint32_t UsartDivMantissa=UsartDivDouble;
+    uint16_t UsartDivFraction=round((UsartDivDouble-UsartDivMantissa)*16);
+    USART2::BRR::DIV_Mantissa::Set(UsartDivMantissa);
+    USART2::BRR::DIV_Fraction::Set(UsartDivFraction);
+    RCC::AHB1ENRPack<
+     RCC::AHB1ENR::GPIOCEN::Enable,
+     RCC::AHB1ENR::GPIOBEN::Enable,
+     RCC::AHB1ENR::GPIOAEN::Enable
+        >::Set();
+    //SPI1 config
+    RCC::APB2ENR::SPI1EN::Enable::Set();
+    NVIC::ISER1::Write(1<<3);
+    SPI1::CR1::MSTR::Master::Set();
+    SPI1::CR1::DFF::Data8bit::Set();
+    SPI1::CR1::BR::PclockDiv2::Set();
+    SPI1::CR1::CRCEN::CrcCalcDisable::Set();
+    SPI1::CR1::CPOL::High::Set();
+    SPI1::CR1::CPHA::Phase2edge::Set();
+    SPI1::CR1::LSBFIRST::MsbFisrt::Set();
+    SPI1::CR2::SSOE::SsOutputEnable::Set(); 
+    SPI1::CR1::SSM::NssSoftwareEnable::Set();
+    SPI1::CR1::SSI::Value1::Set();
+    GPIOB::MODERPack<
+     GPIOB::MODER::MODER3::Alternate, //sck
+     GPIOB::MODER::MODER4::Alternate, //miso
+     GPIOB::MODER::MODER5::Alternate, //mosi
+     GPIOB::MODER::MODER10::Output,   //cs for bme280
+        >::Set();
+    GPIOB::AFRLPack<
+     GPIOB::AFRL::AFRL3::Af5,
+     GPIOB::AFRL::AFRL4::Af5,
+     GPIOB::AFRL::AFRL5::Af5,
+        >::Set();  
+    GPIOB::BSRR::BS10::High::Write() ;
+    return 1;
+  }
 }
 OsWrapper::Event event(100ms, 1);
 ButtonEventTask<UserButton, event> buttonEventTask;
@@ -1963,16 +1969,16 @@ BluetoothTask bluetoothTask;
 MeasurementTask<event> measurementTask;
 int main()
 {  
-USART2::CR1::UE::Enable::Set();    
-SPI1::CR1::SPE::Enable::Set();
-bme280.InitializeCalibrateData();
-bme280.StartMeasurements();
-using namespace OsWrapper;
-Rtos::CreateThread(bluetoothTask,"bluetoothTask", ThreadPriority::lowest);
-Rtos::CreateThread(buttonEventTask,"buttonEventTask", ThreadPriority::highest);
-Rtos::CreateThread(measurementTask,"measurementTask", ThreadPriority::priorityMax);
-Rtos::Start();
-return 0;
+  USART2::CR1::UE::Enable::Set();    
+  SPI1::CR1::SPE::Enable::Set();
+  bme280.InitializeCalibrateData();
+  bme280.StartMeasurements();
+  using namespace OsWrapper;
+  Rtos::CreateThread(bluetoothTask,"bluetoothTask", ThreadPriority::lowest);
+  Rtos::CreateThread(buttonEventTask,"buttonEventTask", ThreadPriority::highest);
+  Rtos::CreateThread(measurementTask,"measurementTask", ThreadPriority::priorityMax);
+  Rtos::Start();
+  return 0;
 }
 
 = Результат программы
