@@ -1340,7 +1340,6 @@ receiveMessLength=size;
 image::kr38.png[]
 
 *	BluetoothUpdateTask:  период – 1000ms, приоритет – lowest;
-*	ButtonPressTask:  период – 100ms, приоритет – highest;
 *	MeasurementTask:  период – 100ms, приоритет – priorityMax.
 
 
@@ -1442,3 +1441,370 @@ break;
 
 .Обновлённая диаграмма
 image::kr39.png[]
+
+=== Класс Temperature
+
+Реализуюет логику пересчета из одной температурной шкалы в другую, используется для описания величин, имеющих размерность температуры: temperature и dewPoint. Давление и влажность в рамках данной программы имеют по одной единице измерения, и ввиду отсутствия специальной логики для их описания достаточно базового класса.
+На рисунке приведены диаграммы классов Measurement и Temperature, а также экземпляры этих классов temperature, pressure, humidity, dewPoint, указатели на которые объединены в массив measurements.
+
+image::kr40.png[]
+
+==== Код Temperature и обновлённый код MEASUREMENT
+
+measurement.h
+
+[source, cpp]
+#include <string>
+#include <cassert>
+#pragma once
+enum class Unit
+{
+K,
+F,
+C,
+hPa,
+percent
+};
+class Measurement
+{
+protected:
+double(*DataSourceFcn)();
+public:  
+const Unit *const units;
+const std::size_t countOfUnits;
+const Unit defaultUnit;
+std::string quantityName;
+Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
+quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
+{
+assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
+}
+Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
+quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
+{
+}
+virtual double GetValue()
+{
+return DataSourceFcn();
+}
+virtual double GetValue(Unit unit)
+{
+assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
+return DataSourceFcn();
+}
+bool CheckUnit(Unit unit)
+{
+bool flag=false;
+for(int i=0;i<countOfUnits;i++)
+{
+if(unit==units[i])
+{
+flag=true;
+}
+}
+return flag;
+}
+static string ShowUnitName(Unit unit)
+{
+string str;
+switch(unit)
+{  
+case Unit::K:
+str = "K";
+break;
+case Unit::F:
+str = "F";
+break;
+case Unit::C:
+str = "C";
+break;
+case Unit::hPa:
+str = "hPa";
+break;
+case Unit::percent:
+str = "%";
+break;  
+default:
+assert(false &&" unit must match measurement's units");
+break;
+}
+return str;
+}
+};
+
+Temperature.h
+
+[source, cpp]
+pragma once
+#include "Measurement.h"
+#include <cassert>
+Unit temperatureUnits[3]={Unit::K,Unit::C,Unit::F};
+class Temperature: public Measurement
+{
+public:
+Temperature(string quantityName, double(*DataSourceFcn)())
+:Measurement(quantityName, temperatureUnits, 3, Unit::C, DataSourceFcn){}
+virtual double GetValue()
+{
+return DataSourceFcn();
+}
+virtual double GetValue(Unit unit)
+{
+double value;
+switch(unit)
+{
+case Unit::C:
+value = Measurement::GetValue();
+break;
+case Unit::K:
+value = GetValue()+273.15;
+break;
+case Unit::F:
+value = GetValue()*1.8+32.0;
+break;
+default:
+assert(false &&"unit must match measurement's units");
+break;
+}
+return value;
+}
+};
+
+
+=== Классы Port, Pin, Button
+
+.Диаграммы классов Port, Pin и Button
+image::kr41.png[]
+
+==== Код Port, Pin, Button
+
+ *Pin.h*
+
+[source, cpp]
+#pragma once
+#include <cstdint> // for uint8_t
+#include "port.h" 
+template<typename Port, uint8_t number>
+class Pin
+{  
+public: 
+static void Toggle()
+{
+Port::Toggle(number);
+}
+static void Set()
+{
+Port::Set(1<<number);
+}
+static void Reset()
+{
+Port::Reset(1<<number);
+}
+static bool IsSet()
+{
+return Port::IsSet(number);
+}
+static uint8_t Get()
+{
+return IsSet()?1U:0U;
+}
+static void Enable()
+{
+if(!Port::IsEnable())Port::Enable();
+}
+static void SelectInputMode()
+{
+Port::ModeSet(number,Moder::Input);
+}
+static void SelectOutputMode()
+{
+Port::ModeSet(number,Moder::Output);
+}
+static void SelectMode(Moder moder)
+{
+Port::ModeSet(number,moder);
+}
+};
+
+
+*PinConfig.h*
+
+[source, cpp]
+#pragma once
+#include "pin.h"         // for Pin
+#include "portsconfig.h" // for PortC, PortA
+using PinLed1 = Pin<PortA, 5>;
+using PinLed2 = Pin<PortC, 9>;
+using PinLed3 = Pin<PortC, 8>;
+using PinLed4 = Pin<PortC, 5>;
+using PinButton = Pin<PortC, 13>;
+using PinCSforBME280 = Pin<PortB, 10>;
+using PinCSforEPD = Pin<PortB, 1>;
+using PinDCforEPD = Pin<PortB, 2>;
+using PinRSTforEPD = Pin<PortC, 3>;
+using PinBSYforEPD = Pin<PortC, 2>;
+
+*Port.h*
+
+[source, cpp]
+#pragma once
+#include <cstdint> // for uint8_t
+#include "gpiocregisters.hpp" // for GPIOC
+#include "gpioaregisters.hpp" // for GPIOC
+#include "gpiocregisters.hpp" 
+#include "gpiobregisters.hpp" 
+#include "rccregisters.hpp" 
+enum Moder
+{
+Input=0,
+Output=1,
+Alternate=2,
+Analog=3,
+}; 
+template<typename PortType>
+struct AHB1ENR_of
+{
+};
+template<>
+struct AHB1ENR_of<GPIOC>
+{
+using Enable = RCC::AHB1ENR::GPIOCEN::Enable;
+using Disable = RCC::AHB1ENR::GPIOCEN::Disable;
+};
+template<>
+struct AHB1ENR_of<GPIOA>
+{
+using Enable = RCC::AHB1ENR::GPIOAEN::Enable;
+using Disable = RCC::AHB1ENR::GPIOAEN::Disable;
+};
+template<>
+struct AHB1ENR_of<GPIOB>
+{
+using Enable = RCC::AHB1ENR::GPIOBEN::Enable;
+using Disable = RCC::AHB1ENR::GPIOBEN::Disable;
+};
+template<typename Reg>
+class Port
+{
+public:  
+static void Toggle(uint8_t num) 
+{
+Reg::ODR::Toggle(1U << num);
+}
+static bool IsSet(uint8_t num)
+{
+return (Reg::IDR::Get()&(1<<num))!=0;
+}
+static uint32_t Get()
+{
+return Reg::IDR::Get();
+}
+static void Write(uint32_t value)
+{
+Reg::ODR::Write(value);
+}
+static void Set(uint32_t value) 
+{
+Reg::BSRR::Write(value);
+}
+static void Reset(uint32_t value) 
+{
+Reg::BSRR::Write(value<<16);
+}
+static void ModeSet(uint8_t num, Moder moder) 
+{
+auto value = Reg::MODER::Get();
+value &= ~(3U<<(num*2U));
+value |= moder<<(num*2U);
+Reg::MODER::Write(value);
+}
+static void Enable() 
+{
+AHB1ENR_of<Reg>::Enable::Set();
+}
+static void Disable() 
+{
+AHB1ENR_of<Reg>::Disable::Set();
+}
+static bool IsEnable() 
+{
+return AHB1ENR_of<Reg>::Enable::IsSet();
+}
+};
+
+*PortConfig.h*
+
+[source, cpp]
+#pragma once
+using PortA = Port<GPIOA>;
+using PortB = Port<GPIOB>;
+using PortC = Port<GPIOC>;
+
+*Button.h*
+
+[source, cpp]
+#pragma once
+#include "pin.h"
+#include "pinsconfig.h"
+template<typename Pin>
+class Button
+{
+public:
+static bool WasPressed()
+{
+if(!Pin::IsSet())
+{
+while(!Pin::IsSet());
+return true;
+}
+return false;
+}
+static void Enable()
+{
+Pin::Enable();
+Pin::SelectInputMode();
+}
+};
+using UserButton = Button<PinButton>;
+
+
+=== Класс ButtonPressTask
+
+.Диаграмма класса ButtonPressTask
+image::kr42.png[]
+
+*	ButtonPressTask:  период – 100ms, приоритет – highest;
+
+==== Код
+
+*ButtonEventTask.h*
+
+[source, cpp]
+#pragma once
+#include "thread.hpp"
+#include "Button.h"
+#include "event.hpp"
+using namespace OsWrapper;
+template<typename Button, auto& event>
+class ButtonEventTask:public Thread<128U>
+{
+public:
+ButtonEventTask()
+{
+Button::Enable(); 
+}
+void Execute()
+{
+for(;;)
+{
+if (Button::WasPressed())
+{
+event.Signal();
+}
+Sleep(100ms);
+}
+}
+};
+
+==
+
