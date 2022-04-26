@@ -578,129 +578,433 @@ image::kr27.png[]
 
 = Классы
 
-== Класс Measurement
+== Классы SPI, SpiDriver
 
-Класс Measurement, описывающий значения измеряемых величин, имеет следующие компоненты:
+В классе SPI содержатся методы, оборачивающие работу с регистрами SPIx микроконтроллера, и обработчик прерываний SPIx, в котором вызываются методы драйвера tranceiver, содержащие конкретную логику действий, которые требуется совершить при прерываниях RXNE (буфер приема не пуст), TXE (буфер передачи пуст).
 
-*	DataSourceFcn - указатель на функцию-поставщик данных;
-*	units - массив единиц измерения, используемых для выражения значения этой величины;
-*	countOfUnit - длина массива unit;
-*	defaultUnit - исходная единица измерения, в которой выражены значения, поставляемые источником данных DataSourceFcn;
-*	GetValue() - функция, возвращающая выраженное в defaultUnit значение измеряемой величины;
-*	GetValue(unit) - функция, возвращающая значение измеряемой величины, выраженное в выбранной единице измерения unit;
-*	quantityName - сторка наименования измеряемой величины;
-*	ShowUnitName(unit) - статическая функция, возвращающаяя строку обозначения единицы измерения unit.
-*	конструктор, создающий экземпляр класса на основе названия измеряемой величины, массива допустимых единиц измерений, длины этого массива, исходной величины измерения, указателя на функцию-поставщика данных;
-*	упрощенный конструктор для величин с одной допустимой единицей измерения, создающий экземпляр класса на основе названия измеряемой величины, единицы измерения, указателя на функцию-поставщика данных.
+Класс SpiDriver предоставляет возможность передачи и чтения данных по интерфейсу SPI. Момент завершения приема входного сообщения фиксируется по наступлению прерывания.
 
-На рисунке приведены диаграммы класса Measurement, а также экземпляры этих классов temperature, pressure, humidity, dewPoint, указатели на которые объединены в массив measurements.
+.Диаграммы классов SPI, SpiDriver
+image::kr37.png[]
 
-image::kr29.png[600, 600]
+*Методы SendByte() и ReadByte()* получают и передают данные в буфер.
+Регистр данных разделен на 2 буфера - один для записи (буфер передачи) и другой для чтения (буфер приема). Запись в регистр данных приведет к записи в буфер Tx, а считывание из регистра данных вернет значение, хранящееся в буфере Rx.
 
-=== Код класса Measurement
+image::sp1.png[500, 500]
 
-==== measurement.h
+*Методы TransmiteBufEmptyInterruptEnable(), TransmiteBufEmptyInterruptDisable()* отвечают за включение прерывания с пустым буфером Tx.
+
+image::sp2.png[500, 500]
+
+Используется для генерации запроса на прерывание, когда установлен флаг TXE.
+
+
+*Методы ReceiveBufNotEmptyInterruptEnable() и ReceiveBufNotEmptyInterruptDisable()* отвечают за разрешение прерывания при заполнении буфера RX.
+
+image::sp3.png[500, 500]
+
+
+*Метод TransmittionCompleted()* отвечает за завершение передачи данных, проверяет происходит ли передача данных и пуст ли Tx буфер.
+
+image::sp4.png[400, 400]
+
+*Метод SpiInterruptHandler* обрабатывает прерывания буфера Rx и Tx и перенаправляет их в методы OnNextByte.
+
+
+*Методы SendMessage(), SendByte()* отвечают за передачу данных по интерфейсу SPI.
+
+*Методы  IsMessageTransmitted() и IsMessageReceived()* получают и передают  данные.
+
+*Методы  OnNextByteTransmite() и OnNextByteReceive()* отвечают за получение и последующую передачу байтов.
+
+*Методы GetMessage(), GetByte()* отвечают за получение данных и предоставляют доступ на их чтение.
+
+*Метод SetReceivedMesLength* устанавливает длину полученного сообщения. 
+
+
+
+=== Код классов SPI и SpiDriver
+
+==== Spi.h
 
 [source, cpp]
-#include <string>
-#include <cassert>
 #pragma once
-enum class Unit
+#include "spi2registers.hpp"
+#include "spi1registers.hpp"
+#include <gpiocregisters.hpp>
+#include <gpiobregisters.hpp>
+[source, cpp]
+struct SpiConfig
 {
-  C,
-  hPa,
-  percent
+  SpiConfig();
 };
-class Measurement
+[source, cpp]
+template<typename SPIx, auto& transceiver>
+class SPI
 {
-protected:
-  double(*DataSourceFcn)();
-public:  
-  const Unit *const units;
-  const std::size_t countOfUnits;
-  const Unit defaultUnit;
-  std::string quantityName;
-  Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
-    quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
-  {
-    assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
+  static SpiConfig config;  
+  public:
+  using T = char;
+  static void Config(SpiConfig config);
+  // получают и передают данные в буфер. Регистр данных разделен на 2 буфера - один для записи (буфер передачи) и другой для чтения (буфер приема). 
+  // Запись в регистр данных приведет к записи в буфер Tx, а считывание из регистра данных вернет значение, хранящееся в буфере Rx.
+  static void SendByte(T byte) 
+  {   
+    SPIx::DR::Write(byte);   
   }
-  Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
-    quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
+  static T ReadByte()
   {
+    return SPIx::DR::Get();
+  }
+  // отвечает за включение прерывания с пустым буфером Tx.
+  static void TransmiteBufEmptyInterruptEnable() 
+  {
+    SPIx::CR2::TXEIE::NotMasked::Set();
+  }  
+  // отвечает за выключение прерывания.
+  static void TransmiteBufEmptyInterruptDisable() 
+  {
+    SPIx::CR2::TXEIE::Masked::Set();
   } 
-  virtual double GetValue()
+  // отвечает за включение прерывания при заполнении буфера RX.
+  static void ReceiveBufNotEmptyInterruptEnable() 
   {
-    return DataSourceFcn();
+    SPIx::CR2::RXNEIE::NotMasked::Set();
+  }  
+  // отвечает за выключение прерывания.
+  static void ReceiveBufNotEmptyInterruptDisable() 
+  {
+    SPIx::CR2::RXNEIE::Masked::Set();
+  }  
+  // отвечает за завершение передачи данных, проверяет происходит ли передача данных и пуст ли Tx буфер.
+  static bool TransmittionCompleted() 
+  {
+    return SPIx::SR::BSY::NotBusy::IsSet();
   }
-  virtual double GetValue(Unit unit)
+  // обрабатывает прерывания буфера Rx и Tx и перенаправляет их в методы OnNextByte.
+  static void SpiInterruptHandler() 
   {
-    assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
-    return DataSourceFcn();
-  }
-  bool CheckUnit(Unit unit)
-  {
-    bool flag=false;
-    for(int i=0;i<countOfUnits;i++)
+    if(SPIx::CR2::RXNEIE::NotMasked::IsSet()&&SPIx::SR::RXNE::RxBufferNotEmpty::IsSet())
     {
-      if(unit==units[i])
+       transceiver.OnNextByteReceive();
+    }
+    if (SPIx::CR2::TXEIE::NotMasked::IsSet()&&SPIx::SR::TXE::TxBufferEmpty::IsSet())
+    {
+      transceiver.OnNextByteTransmite();
+    }
+  }
+};
+
+==== spiсonfig.h
+
+[source, cpp]
+#pragma once
+#include "spiDriver.h"
+#include "spi.h"
+class spi1;
+inline SpiDriver<spi1> spi1Transceiver;
+class spi1 : public  SPI<SPI1, spi1Transceiver> {};
+
+
+==== spiDriver.h
+
+[source, cpp]
+#pragma once
+#include "spi.h"
+template<typename spi>
+class SpiDriver
+{
+  std::array<char,200> transmiteBuf = {0};
+  std::array<char,200> receiveBuf = {0};
+  uint32_t transmiteMessLength = 1;
+  uint32_t receiveMessLength = 1;
+  bool messageWasReceived = false;
+  bool messageWasTransmited = false;
+  uint32_t Rit=0;
+  uint32_t Tit=0;
+  public:
+  // отвечает за передачу данных по интерфейсу SPI.
+  void SendMessage(char* message, std::size_t size)
+  {
+    messageWasTransmited=false;   
+    uint32_t L = size;
+    if(transmiteBuf.size()<L) L=transmiteBuf.size();
+    transmiteMessLength =L;
+    std::memcpy(transmiteBuf.data(), message,transmiteMessLength);
+    messageWasReceived = (receiveMessLength == 0);    
+    if(receiveMessLength != 0)
+    {
+      spi::ReadByte();
+      spi::ReceiveBufNotEmptyInterruptEnable();
+    }
+    spi::TransmiteBufEmptyInterruptEnable();   
+  }
+  void SendByte(char byte)
+  {
+    messageWasTransmited = false;   
+    transmiteMessLength = 1;
+    transmiteBuf[0] = byte;
+    messageWasReceived = (receiveMessLength == 0);
+    spi::ReadByte();
+    if(receiveMessLength != 0)
+    {
+      spi::ReadByte();
+      spi::ReceiveBufNotEmptyInterruptEnable();
+    }
+    spi::TransmiteBufEmptyInterruptEnable();   
+  }
+  //отвечает за передачу байтов.
+  void OnNextByteTransmite()
+  {
+    if(Tit<transmiteMessLength||(!messageWasReceived))
+    {
+      if(Tit>=transmiteMessLength)
       {
-        flag=true;
+        transmiteBuf[Tit]=transmiteBuf[Tit-1];
+      }
+      spi::SendByte(transmiteBuf[Tit++]);
+    }
+    else
+    {
+      Tit = 0;
+      spi::TransmiteBufEmptyInterruptDisable();
+      if(receiveMessLength == 0)
+      {
+        while(!spi::TransmittionCompleted())
+        {
+        }
+      }
+      messageWasTransmited = true;
+    }
+  }
+  //отвечает за получение байтов. 
+  void OnNextByteReceive()
+  {
+    static bool isfirst = true;
+    uint8_t bf = spi::ReadByte();
+    if(!messageWasReceived)
+    {
+      if(!isfirst)
+      {
+        receiveBuf[Rit++] = bf;
+        if(Rit == receiveMessLength)
+        {         
+          spi::ReceiveBufNotEmptyInterruptDisable();
+          Rit = 0;
+          messageWasReceived = true;
+          isfirst = true;
+        }
+      }
+      else
+      {
+        isfirst = false;
       }
     }
-    return flag;
-  }  
-  static string ShowUnitName(Unit unit)
+  }
+  // получает и передает данные.
+  bool IsMessageReceived()
   {
-    string str;
-    switch(unit)
-    {  
-    case Unit::C:
-      str = "C";
-      break;
-    case Unit::hPa:
-      str = "hPa";
-      break;
-    case Unit::percent:
-      str = "%";
-      break;  
-    default:
-      assert(false &&" unit must match measurement's units");
-      break;
-    }
-    return str;
+    return messageWasReceived;
+  }
+  bool IsMessageTransmited()
+  {
+    return messageWasTransmited;
+  }
+  // отвечает за получение сообщения и предоставляет доступ на их чтение.  
+  void GetMessage(char* outBuf)
+  {
+    std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
+    //receiveBuf.fill(0);
+    messageWasReceived = false;
+  }
+  // отвечает за получение байтов и предоставляет доступ на их чтение.  
+  char GetByte()
+  {
+    messageWasReceived = false;
+    char bf = receiveBuf[0];
+    receiveBuf[0] = 0;
+    return bf;
+  }
+  // устанавливает длину полученного сообщения.
+  void SetReceivedMesLength(std::size_t size)
+  {
+    receiveMessLength = size;
   }
 };
 
-==== measurementConfig.h
+== Классы USART, UsartDriver
+
+В классе USART<USARTx, tranceiver> содержатся методы, оборачивающие работу с регистрами USARTx микроконтроллера, и обработчик прерываний USARTx, в котором вызываются методы драйвера tranceiver, содержащие конкретную логику действий, которые требуется совершить при прерываниях RXNE (буфер приема не пуст), TXE (буфер передачи пуст).
+
+Класс UsartDriver<USART> предоставляет возможность передачи и чтения данных по интерфейсу USART. Момент завершения приема входного сообщения фиксируется по наступлению прерывания.
+
+image::kr36.png[]
+
+=== Код классов USART и UsartDriver
+
+==== usart.h
 
 [source, cpp]
 #pragma once
-#include "Measurement.h"
-#include "Temperature.h"
-#include "bme280driverconfig.h"
-double fcnTemp()
+#include "usart2registers.hpp"
+#include "usart1registers.hpp"
+struct UsartConfig
 {
-  return bme280.GetTemperature();
+  UsartConfig();
 };
-double fcnPress()
+template<typename USARTx, auto& tranceiver>
+class USART
 {
-  return bme280.GetPressure();
+  static UsartConfig config; 
+public: 
+  static void Config(UsartConfig config);
+  static void SendByte(uint8_t byte)
+  {
+    USARTx::DR::Write(byte);
+  }
+  static uint8_t ReadByte()
+  {
+    return USARTx::DR::Get();
+  }
+  static void TransmiteEnable()
+  {
+    USARTx::CR1::TE::Enable::Set();
+  }
+  static void TransmiteBufEmptyInterruptEnable()
+  {
+    USARTx::CR1::TXEIE::InterruptWhenTXE::Set();
+  }   
+  static void TransmiteDisable()
+  {
+    USARTx::CR1::TE::Disable::Set();
+  }
+  static void TransmiteBufEmptyInterruptDisable()
+  {
+    USARTx::CR1::TXEIE::InterruptInhibited::Set();
+  } 
+  static void ReceiveEnable()
+  {
+    USARTx::CR1::RE::Enable::Set();
+  }
+  static void ReceiveDisable()
+  {
+    USARTx::CR1::RE::Disable::Set();
+  }  
+  static void EndOfTransmittingEnable()
+  {
+    USARTx::CR1::IDLEIE::Interrupt::Set();
+  }
+  static void EndOfTransmittingDisable()
+  {
+    USARTx::CR1::IDLEIE::InterruptInhibited::Set();
+  }
+  static bool TransmitionCompleted()
+  {
+    return USARTx::SR::TC::TransmitionComplete::IsSet();
+  }
+  static void UsartInterruptHandler()
+  {
+    if(USARTx::SR::RXNE::DataRecieved::IsSet())
+    {
+      tranceiver.OnNextByteReceive();
+    }
+    if(USARTx::CR1::TE::Enable::IsSet()&&USART2::SR::TXE::DataRegisterEmpty::IsSet())
+    {
+      tranceiver.OnNextByteTransmite();
+    }
+    if(USARTx::CR1::IDLEIE::Interrupt::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
+    {
+      tranceiver.OnEndOfTransmitting();
+    }
+  }
 };
-double fcnHum()
+
+==== usartconfig.h
+
+[source, cpp]
+#pragma once
+#include "usartDriver.h"
+#include "usart.h"
+class usart2;
+inline usartDriver<usart2> bluetoothTransceiver;
+class usart2 : public  USART<USART2,bluetoothTransceiver> {};
+
+
+==== usarDriver.h
+
+[source, cpp]
+#pragma once
+#include "usart.h"
+template<typename usart>
+class usartDriver
 {
-  return bme280.GetHumidity();
+  std::array<char,1024> transmiteBuf;
+  std::array<char,1024> receiveBuf;
+  uint32_t transmiteMessLength=0;
+  uint32_t receiveMessLength=0;
+  bool messageWasReceived=false;
+  bool messageWasTransmited=false;
+  uint32_t Rit=0;
+  uint32_t Tit=0;
+ public:
+  void SendMessage(char* message, uint32_t size)
+  {
+    uint32_t L=size;
+    if(transmiteBuf.size()<L) L=transmiteBuf.size();
+    transmiteMessLength=L;
+    std::memcpy(transmiteBuf.data(), message,L);
+    usart::TransmiteEnable();
+    usart::TransmiteBufEmptyInterruptEnable();
+    messageWasTransmited=false;
+    messageWasReceived=false;
+  } 
+  void OnNextByteTransmite()
+  {
+    if(Tit<transmiteMessLength-1)
+    {
+      usart::SendByte(transmiteBuf[Tit++]);
+    }
+    else
+    {
+      usart::SendByte(transmiteBuf[Tit]);
+      Tit=0;
+      while(!usart::TransmitionCompleted())
+      {
+      }
+      usart::TransmiteDisable();
+      usart::TransmiteBufEmptyInterruptDisable();
+      messageWasTransmited=true;
+    }
+  }
+  void OnNextByteReceive()
+  {
+    uint8_t bf=usart::ReadByte();
+    if(!messageWasReceived)
+    {
+      receiveBuf[Rit++]=bf;
+      usart::EndOfTransmittingEnable();
+    }
+  }
+  void OnEndOfTransmitting()
+  {
+    receiveMessLength=Rit;
+    Rit=0;
+    usart::EndOfTransmittingDisable();
+    messageWasReceived=true;
+  }
+   bool MessageWasReceived()
+   {
+     return messageWasReceived;
+   }
+  void GetMessage(char* outBuf, std::size_t& length)
+   {
+     length=receiveMessLength;
+     std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
+     messageWasReceived=false;
+   }
 };
-double fcnDewP()
-{
-  return bme280.GetDewPoint();
-};
-inline Temperature temperature("Temperature", fcnTemp);
-inline Measurement pressure("Pressure", Unit::hPa, fcnPress);
-inline Measurement humidity("Humidity", Unit::percent, fcnHum);
-inline Temperature dewPoint("Dew point",  fcnDewP);
-inline Measurement* measurements[4] = {&temperature, &pressure, &humidity, &dewPoint};
-inline Unit userUnits[4]={Unit::F, Unit::hPa, Unit::percent, Unit::F};
+
+
 
 
 ==	Класс BME280Driver
@@ -965,430 +1269,135 @@ public:
 #include "pinsconfig.h"
 inline BME280Driver<spi1Transceiver, PinCSforBME280> bme280;
 
-== Классы USART, UsartDriver
 
-В классе USART<USARTx, tranceiver> содержатся методы, оборачивающие работу с регистрами USARTx микроконтроллера, и обработчик прерываний USARTx, в котором вызываются методы драйвера tranceiver, содержащие конкретную логику действий, которые требуется совершить при прерываниях RXNE (буфер приема не пуст), TXE (буфер передачи пуст).
+== Класс Measurement
 
-Класс UsartDriver<USART> предоставляет возможность передачи и чтения данных по интерфейсу USART. Момент завершения приема входного сообщения фиксируется по наступлению прерывания.
+Класс Measurement, описывающий значения измеряемых величин, имеет следующие компоненты:
 
-image::kr36.png[]
+*	DataSourceFcn - указатель на функцию-поставщик данных;
+*	units - массив единиц измерения, используемых для выражения значения этой величины;
+*	countOfUnit - длина массива unit;
+*	defaultUnit - исходная единица измерения, в которой выражены значения, поставляемые источником данных DataSourceFcn;
+*	GetValue() - функция, возвращающая выраженное в defaultUnit значение измеряемой величины;
+*	GetValue(unit) - функция, возвращающая значение измеряемой величины, выраженное в выбранной единице измерения unit;
+*	quantityName - сторка наименования измеряемой величины;
+*	ShowUnitName(unit) - статическая функция, возвращающаяя строку обозначения единицы измерения unit.
+*	конструктор, создающий экземпляр класса на основе названия измеряемой величины, массива допустимых единиц измерений, длины этого массива, исходной величины измерения, указателя на функцию-поставщика данных;
+*	упрощенный конструктор для величин с одной допустимой единицей измерения, создающий экземпляр класса на основе названия измеряемой величины, единицы измерения, указателя на функцию-поставщика данных.
 
-=== Код классов USART и UsartDriver
+На рисунке приведены диаграммы класса Measurement, а также экземпляры этих классов temperature, pressure, humidity, dewPoint, указатели на которые объединены в массив measurements.
 
-==== usart.h
+image::kr29.png[600, 600]
+
+=== Код класса Measurement
+
+==== measurement.h
 
 [source, cpp]
+#include <string>
+#include <cassert>
 #pragma once
-#include "usart2registers.hpp"
-#include "usart1registers.hpp"
-struct UsartConfig
+enum class Unit
 {
-  UsartConfig();
+  C,
+  hPa,
+  percent
 };
-template<typename USARTx, auto& tranceiver>
-class USART
+class Measurement
 {
-  static UsartConfig config; 
-public: 
-  static void Config(UsartConfig config);
-  static void SendByte(uint8_t byte)
+protected:
+  double(*DataSourceFcn)();
+public:  
+  const Unit *const units;
+  const std::size_t countOfUnits;
+  const Unit defaultUnit;
+  std::string quantityName;
+  Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
+    quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
   {
-    USARTx::DR::Write(byte);
+    assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
   }
-  static uint8_t ReadByte()
+  Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
+    quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
   {
-    return USARTx::DR::Get();
-  }
-  static void TransmiteEnable()
-  {
-    USARTx::CR1::TE::Enable::Set();
-  }
-  static void TransmiteBufEmptyInterruptEnable()
-  {
-    USARTx::CR1::TXEIE::InterruptWhenTXE::Set();
-  }   
-  static void TransmiteDisable()
-  {
-    USARTx::CR1::TE::Disable::Set();
-  }
-  static void TransmiteBufEmptyInterruptDisable()
-  {
-    USARTx::CR1::TXEIE::InterruptInhibited::Set();
   } 
-  static void ReceiveEnable()
+  virtual double GetValue()
   {
-    USARTx::CR1::RE::Enable::Set();
+    return DataSourceFcn();
   }
-  static void ReceiveDisable()
+  virtual double GetValue(Unit unit)
   {
-    USARTx::CR1::RE::Disable::Set();
+    assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
+    return DataSourceFcn();
+  }
+  bool CheckUnit(Unit unit)
+  {
+    bool flag=false;
+    for(int i=0;i<countOfUnits;i++)
+    {
+      if(unit==units[i])
+      {
+        flag=true;
+      }
+    }
+    return flag;
   }  
-  static void EndOfTransmittingEnable()
+  static string ShowUnitName(Unit unit)
   {
-    USARTx::CR1::IDLEIE::Interrupt::Set();
-  }
-  static void EndOfTransmittingDisable()
-  {
-    USARTx::CR1::IDLEIE::InterruptInhibited::Set();
-  }
-  static bool TransmitionCompleted()
-  {
-    return USARTx::SR::TC::TransmitionComplete::IsSet();
-  }
-  static void UsartInterruptHandler()
-  {
-    if(USARTx::SR::RXNE::DataRecieved::IsSet())
-    {
-      tranceiver.OnNextByteReceive();
+    string str;
+    switch(unit)
+    {  
+    case Unit::C:
+      str = "C";
+      break;
+    case Unit::hPa:
+      str = "hPa";
+      break;
+    case Unit::percent:
+      str = "%";
+      break;  
+    default:
+      assert(false &&" unit must match measurement's units");
+      break;
     }
-    if(USARTx::CR1::TE::Enable::IsSet()&&USART2::SR::TXE::DataRegisterEmpty::IsSet())
-    {
-      tranceiver.OnNextByteTransmite();
-    }
-    if(USARTx::CR1::IDLEIE::Interrupt::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
-    {
-      tranceiver.OnEndOfTransmitting();
-    }
+    return str;
   }
 };
 
-==== usartconfig.h
+==== measurementConfig.h
 
 [source, cpp]
 #pragma once
-#include "usartDriver.h"
-#include "usart.h"
-class usart2;
-inline usartDriver<usart2> bluetoothTransceiver;
-class usart2 : public  USART<USART2,bluetoothTransceiver> {};
-
-
-==== usarDriver.h
-
-[source, cpp]
-#pragma once
-#include "usart.h"
-template<typename usart>
-class usartDriver
+#include "Measurement.h"
+#include "Temperature.h"
+#include "bme280driverconfig.h"
+double fcnTemp()
 {
-  std::array<char,1024> transmiteBuf;
-  std::array<char,1024> receiveBuf;
-  uint32_t transmiteMessLength=0;
-  uint32_t receiveMessLength=0;
-  bool messageWasReceived=false;
-  bool messageWasTransmited=false;
-  uint32_t Rit=0;
-  uint32_t Tit=0;
- public:
-  void SendMessage(char* message, uint32_t size)
-  {
-    uint32_t L=size;
-    if(transmiteBuf.size()<L) L=transmiteBuf.size();
-    transmiteMessLength=L;
-    std::memcpy(transmiteBuf.data(), message,L);
-    usart::TransmiteEnable();
-    usart::TransmiteBufEmptyInterruptEnable();
-    messageWasTransmited=false;
-    messageWasReceived=false;
-  } 
-  void OnNextByteTransmite()
-  {
-    if(Tit<transmiteMessLength-1)
-    {
-      usart::SendByte(transmiteBuf[Tit++]);
-    }
-    else
-    {
-      usart::SendByte(transmiteBuf[Tit]);
-      Tit=0;
-      while(!usart::TransmitionCompleted())
-      {
-      }
-      usart::TransmiteDisable();
-      usart::TransmiteBufEmptyInterruptDisable();
-      messageWasTransmited=true;
-    }
-  }
-  void OnNextByteReceive()
-  {
-    uint8_t bf=usart::ReadByte();
-    if(!messageWasReceived)
-    {
-      receiveBuf[Rit++]=bf;
-      usart::EndOfTransmittingEnable();
-    }
-  }
-  void OnEndOfTransmitting()
-  {
-    receiveMessLength=Rit;
-    Rit=0;
-    usart::EndOfTransmittingDisable();
-    messageWasReceived=true;
-  }
-   bool MessageWasReceived()
-   {
-     return messageWasReceived;
-   }
-  void GetMessage(char* outBuf, std::size_t& length)
-   {
-     length=receiveMessLength;
-     std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
-     messageWasReceived=false;
-   }
+  return bme280.GetTemperature();
 };
-
-
-== Классы SPI, SpiDriver
-
-Аналогично системе классов Usart-UsartDriver, для работы с протоколом SPI используются классы SPI, SpiDriver. 
-
-.Диаграммы классов SPI, SpiDriver
-image::kr37.png[]
-
-*Методы SendByte() и ReadByte()* получают и передают данные в буфер.
-Регистр данных разделен на 2 буфера - один для записи (буфер передачи) и другой для чтения (буфер приема). Запись в регистр данных приведет к записи в буфер Tx, а считывание из регистра данных вернет значение, хранящееся в буфере Rx.
-
-image::sp1.png[500, 500]
-
-*Методы TransmiteBufEmptyInterruptEnable(), TransmiteBufEmptyInterruptDisable()* отвечают за включение прерывания с пустым буфером Tx.
-
-image::sp2.png[500, 500]
-
-Используется для генерации запроса на прерывание, когда установлен флаг TXE.
-
-
-*Методы ReceiveBufNotEmptyInterruptEnable() и ReceiveBufNotEmptyInterruptDisable()* отвечают за разрешение прерывания при заполнении буфера RX.
-
-image::sp3.png[500, 500]
-
-
-*Метод TransmittionCompleted()* отвечает за завершение передачи данных, проверяет происходит ли передача данных и пуст ли Tx буфер.
-
-image::sp4.png[400, 400]
-
-*Метод SpiInterruptHandler* обрабатывает прерывания буфера Rx и Tx и перенаправляет их в методы OnNextByte.
-
-
-*Методы SendMessage(), SendByte()* отвечают за передачу данных по интерфейсу SPI.
-
-*Методы  IsMessageTransmitted() и IsMessageReceived()* получают и передают  данные.
-
-*Методы  OnNextByteTransmite() и OnNextByteReceive()* отвечают за получение и последующую передачу байтов.
-
-*Методы GetMessage(), GetByte()* отвечают за получение данных и предоставляют доступ на их чтение.
-
-*Метод SetReceivedMesLength* устанавливает длину полученного сообщения. 
-
-
-
-=== Код классов SPI и SpiDriver
-
-==== Spi.h
-
-[source, cpp]
-#pragma once
-#include "spi2registers.hpp"
-#include "spi1registers.hpp"
-#include <gpiocregisters.hpp>
-#include <gpiobregisters.hpp>
-[source, cpp]
-struct SpiConfig
+double fcnPress()
 {
-  SpiConfig();
+  return bme280.GetPressure();
 };
-[source, cpp]
-template<typename SPIx, auto& transceiver>
-class SPI
+double fcnHum()
 {
-  static SpiConfig config;  
-  public:
-  using T = char;
-  static void Config(SpiConfig config);
-  // получают и передают данные в буфер. Регистр данных разделен на 2 буфера - один для записи (буфер передачи) и другой для чтения (буфер приема). 
-  // Запись в регистр данных приведет к записи в буфер Tx, а считывание из регистра данных вернет значение, хранящееся в буфере Rx.
-  static void SendByte(T byte) 
-  {   
-    SPIx::DR::Write(byte);   
-  }
-  static T ReadByte()
-  {
-    return SPIx::DR::Get();
-  }
-  // отвечает за включение прерывания с пустым буфером Tx.
-  static void TransmiteBufEmptyInterruptEnable() 
-  {
-    SPIx::CR2::TXEIE::NotMasked::Set();
-  }  
-  // отвечает за выключение прерывания.
-  static void TransmiteBufEmptyInterruptDisable() 
-  {
-    SPIx::CR2::TXEIE::Masked::Set();
-  } 
-  // отвечает за включение прерывания при заполнении буфера RX.
-  static void ReceiveBufNotEmptyInterruptEnable() 
-  {
-    SPIx::CR2::RXNEIE::NotMasked::Set();
-  }  
-  // отвечает за выключение прерывания.
-  static void ReceiveBufNotEmptyInterruptDisable() 
-  {
-    SPIx::CR2::RXNEIE::Masked::Set();
-  }  
-  // отвечает за завершение передачи данных, проверяет происходит ли передача данных и пуст ли Tx буфер.
-  static bool TransmittionCompleted() 
-  {
-    return SPIx::SR::BSY::NotBusy::IsSet();
-  }
-  // обрабатывает прерывания буфера Rx и Tx и перенаправляет их в методы OnNextByte.
-  static void SpiInterruptHandler() 
-  {
-    if(SPIx::CR2::RXNEIE::NotMasked::IsSet()&&SPIx::SR::RXNE::RxBufferNotEmpty::IsSet())
-    {
-       transceiver.OnNextByteReceive();
-    }
-    if (SPIx::CR2::TXEIE::NotMasked::IsSet()&&SPIx::SR::TXE::TxBufferEmpty::IsSet())
-    {
-      transceiver.OnNextByteTransmite();
-    }
-  }
+  return bme280.GetHumidity();
 };
-
-==== spiсonfig.h
-
-[source, cpp]
-#pragma once
-#include "spiDriver.h"
-#include "spi.h"
-class spi1;
-inline SpiDriver<spi1> spi1Transceiver;
-class spi1 : public  SPI<SPI1, spi1Transceiver> {};
-
-
-==== spiDriver.h
-
-[source, cpp]
-#pragma once
-#include "spi.h"
-template<typename spi>
-class SpiDriver
+double fcnDewP()
 {
-  std::array<char,200> transmiteBuf = {0};
-  std::array<char,200> receiveBuf = {0};
-  uint32_t transmiteMessLength = 1;
-  uint32_t receiveMessLength = 1;
-  bool messageWasReceived = false;
-  bool messageWasTransmited = false;
-  uint32_t Rit=0;
-  uint32_t Tit=0;
-  public:
-  // отвечает за передачу данных по интерфейсу SPI.
-  void SendMessage(char* message, std::size_t size)
-  {
-    messageWasTransmited=false;   
-    uint32_t L = size;
-    if(transmiteBuf.size()<L) L=transmiteBuf.size();
-    transmiteMessLength =L;
-    std::memcpy(transmiteBuf.data(), message,transmiteMessLength);
-    messageWasReceived = (receiveMessLength == 0);    
-    if(receiveMessLength != 0)
-    {
-      spi::ReadByte();
-      spi::ReceiveBufNotEmptyInterruptEnable();
-    }
-    spi::TransmiteBufEmptyInterruptEnable();   
-  }
-  void SendByte(char byte)
-  {
-    messageWasTransmited = false;   
-    transmiteMessLength = 1;
-    transmiteBuf[0] = byte;
-    messageWasReceived = (receiveMessLength == 0);
-    spi::ReadByte();
-    if(receiveMessLength != 0)
-    {
-      spi::ReadByte();
-      spi::ReceiveBufNotEmptyInterruptEnable();
-    }
-    spi::TransmiteBufEmptyInterruptEnable();   
-  }
-  //отвечает за передачу байтов.
-  void OnNextByteTransmite()
-  {
-    if(Tit<transmiteMessLength||(!messageWasReceived))
-    {
-      if(Tit>=transmiteMessLength)
-      {
-        transmiteBuf[Tit]=transmiteBuf[Tit-1];
-      }
-      spi::SendByte(transmiteBuf[Tit++]);
-    }
-    else
-    {
-      Tit = 0;
-      spi::TransmiteBufEmptyInterruptDisable();
-      if(receiveMessLength == 0)
-      {
-        while(!spi::TransmittionCompleted())
-        {
-        }
-      }
-      messageWasTransmited = true;
-    }
-  }
-  //отвечает за получение байтов. 
-  void OnNextByteReceive()
-  {
-    static bool isfirst = true;
-    uint8_t bf = spi::ReadByte();
-    if(!messageWasReceived)
-    {
-      if(!isfirst)
-      {
-        receiveBuf[Rit++] = bf;
-        if(Rit == receiveMessLength)
-        {         
-          spi::ReceiveBufNotEmptyInterruptDisable();
-          Rit = 0;
-          messageWasReceived = true;
-          isfirst = true;
-        }
-      }
-      else
-      {
-        isfirst = false;
-      }
-    }
-  }
-  // получает и передает данные.
-  bool IsMessageReceived()
-  {
-    return messageWasReceived;
-  }
-  bool IsMessageTransmited()
-  {
-    return messageWasTransmited;
-  }
-  // отвечает за получение сообщения и предоставляет доступ на их чтение.  
-  void GetMessage(char* outBuf)
-  {
-    std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
-    //receiveBuf.fill(0);
-    messageWasReceived = false;
-  }
-  // отвечает за получение байтов и предоставляет доступ на их чтение.  
-  char GetByte()
-  {
-    messageWasReceived = false;
-    char bf = receiveBuf[0];
-    receiveBuf[0] = 0;
-    return bf;
-  }
-  // устанавливает длину полученного сообщения.
-  void SetReceivedMesLength(std::size_t size)
-  {
-    receiveMessLength = size;
-  }
+  return bme280.GetDewPoint();
 };
+inline Temperature temperature("Temperature", fcnTemp);
+inline Measurement pressure("Pressure", Unit::hPa, fcnPress);
+inline Measurement humidity("Humidity", Unit::percent, fcnHum);
+inline Temperature dewPoint("Dew point",  fcnDewP);
+inline Measurement* measurements[4] = {&temperature, &pressure, &humidity, &dewPoint};
+inline Unit userUnits[4]={Unit::F, Unit::hPa, Unit::percent, Unit::F};
+
+
+
+
+
 
 == Классы BluetoothUpdateTask, MeasurementTask
 
@@ -1492,7 +1501,7 @@ public:
   }
 };
 
-== Предусмотрим измерение температуры при нажатии кнопки
+== Изменение единиц измерения температуры и точки росы
 По нажатию кнопки USER на плате единцы измерения температуры будут изменяться в следующей последовательности F (Фаренгейт)→K (Кельвин)→C (Цельсий).
 Для работы с кнопкой предусмотрим класс Button. При нажатии кнопки задача будет генерировать событие, меняющей единицы измерения температурных величин.
 
@@ -1991,4 +2000,4 @@ image::kr44.png[700, 700]
 
 = Заключение
 
-В ходе работы над курсовым проектом было разработано программное обеспечение для метеостанции на базе датчика BME280. Вывод результатов измерения производится на смартфон по протоколу Bluetooth.
+В ходе работы над курсовым проектом было разработано программное обеспечение для метеостанции на базе датчика BME280. Вывод результатов измерения производится на смартфон по протоколу Bluetooth и питание платы подается с солнечной батареи. 
