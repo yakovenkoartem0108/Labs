@@ -1146,3 +1146,299 @@ image::kr37.png[]
 ==== Spi.h
 
 [source, cpp]
+#pragma once
+#include "spi2registers.hpp"
+#include "spi1registers.hpp"
+#include <gpiocregisters.hpp>
+#include <gpiobregisters.hpp>
+struct SpiConfig
+{
+SpiConfig();
+};
+template<typename SPIx, auto& transceiver>
+class SPI
+{
+static SpiConfig config;
+public:
+using T=char;
+static void Config(SpiConfig config);
+static void SendByte(T byte)
+{
+SPIx::DR::Write(byte);
+}
+static T ReadByte()
+{
+return SPIx::DR::Get();
+}
+static void TransmiteBufEmptyInterruptEnable()
+{
+SPIx::CR2::TXEIE::NotMasked::Set();
+}  
+static void TransmiteBufEmptyInterruptDisable()
+{
+SPIx::CR2::TXEIE::Masked::Set();
+} 
+static void ReceiveBufNotEmptyInterruptEnable()
+{
+SPIx::CR2::RXNEIE::NotMasked::Set();
+}  
+static void ReceiveBufNotEmptyInterruptDisable()
+{
+SPIx::CR2::RXNEIE::Masked::Set();
+}  
+static bool TransmittionCompleted()
+{
+return SPIx::SR::BSY::NotBusy::IsSet();
+}
+static void SpiInterruptHandler()
+{
+if(SPIx::CR2::RXNEIE::NotMasked::IsSet()&&SPIx::SR::RXNE::RxBufferNotEmpty::IsSet())
+{
+transceiver.OnNextByteReceive();
+}
+if (SPIx::CR2::TXEIE::NotMasked::IsSet()&&SPIx::SR::TXE::TxBufferEmpty::IsSet())
+{
+transceiver.OnNextByteTransmite();
+}
+}
+};
+
+==== spiсonfig.h
+
+[source, cpp]
+#pragma once
+#include "spiDriver.h"
+#include "spi.h"
+class spi1;
+inline SpiDriver<spi1> spi1Transceiver;
+class spi1 : public  SPI<SPI1, spi1Transceiver> {};
+
+
+==== spiDriver.h
+
+[source, cpp]
+#pragma once
+#include "spi.h"
+template<typename spi>
+class SpiDriver
+{
+std::array<char,200> transmiteBuf ={0};
+std::array<char,200> receiveBuf = {0};
+uint32_t transmiteMessLength=1;
+uint32_t receiveMessLength=1;
+bool messageWasReceived=false;
+bool messageWasTransmited=false;
+uint32_t Rit=0;
+uint32_t Tit=0;
+public:
+void SendMessage(char* message, std::size_t size)
+{
+messageWasTransmited=false;   
+uint32_t L=size;
+if(transmiteBuf.size()<L) L=transmiteBuf.size();
+transmiteMessLength=L;
+std::memcpy(transmiteBuf.data(), message,transmiteMessLength);
+messageWasReceived=(receiveMessLength==0);
+if(receiveMessLength!=0)
+{
+spi::ReadByte();
+spi::ReceiveBufNotEmptyInterruptEnable();
+}
+spi::TransmiteBufEmptyInterruptEnable();
+}
+void SendByte(char byte)
+{
+messageWasTransmited=false;   
+transmiteMessLength=1;
+transmiteBuf[0]=byte;
+messageWasReceived=(receiveMessLength==0);
+spi::ReadByte();
+if(receiveMessLength!=0)
+{
+spi::ReadByte();
+spi::ReceiveBufNotEmptyInterruptEnable();
+}
+spi::TransmiteBufEmptyInterruptEnable();   
+}
+void OnNextByteTransmite()
+{
+if(Tit<transmiteMessLength||(!messageWasReceived))
+{
+if(Tit>=transmiteMessLength)
+{
+transmiteBuf[Tit]=transmiteBuf[Tit-1];
+}
+spi::SendByte(transmiteBuf[Tit++]);
+}
+else
+{
+Tit=0;
+spi::TransmiteBufEmptyInterruptDisable();
+if(receiveMessLength==0)
+{
+while(!spi::TransmittionCompleted())
+{
+}
+}
+messageWasTransmited=true;
+}
+}
+void OnNextByteReceive()
+{
+static bool isfirst=true;
+uint8_t bf=spi::ReadByte();
+if(!messageWasReceived)
+{
+if(!isfirst)
+{
+receiveBuf[Rit++]=bf;
+if(Rit==receiveMessLength)
+{         
+spi::ReceiveBufNotEmptyInterruptDisable();
+Rit=0;
+messageWasReceived=true;
+isfirst=true;
+}
+}
+else
+{
+isfirst=false;
+}
+}
+}
+bool IsMessageReceived()
+{
+return messageWasReceived;
+}
+bool IsMessageTransmited()
+{
+return messageWasTransmited;
+}
+void GetMessage(char* outBuf)
+{
+std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
+//receiveBuf.fill(0);
+messageWasReceived=false;
+}
+char GetByte()
+{
+messageWasReceived=false;
+char bf = receiveBuf[0];
+receiveBuf[0]=0;
+return bf;
+}
+void SetReceivedMesLength(std::size_t size)
+{
+receiveMessLength=size;
+}
+};
+
+== Классы BluetoothUpdateTask, MeasurementTask
+
+
+.Диаграммы классов BluetoothUpdateTask, MeasurementTask
+image::kr38.png[]
+
+*	BluetoothUpdateTask:  период – 1000ms, приоритет – lowest;
+*	ButtonPressTask:  период – 100ms, приоритет – highest;
+*	MeasurementTask:  период – 100ms, приоритет – priorityMax.
+
+
+
+=== Код классов BluetoothUpdateTask, MeasurementTask
+
+==== BluetoothTask.h
+
+[source, cpp]
+#pragma once
+#include "thread.hpp"
+#include "usartconfig.h"
+#include "bme280driverconfig.h"
+#include "measurementconfig.h"
+#include "stdio.h"
+#include "ledconfig.h"
+using namespace OsWrapper;
+class BluetoothTask:public Thread<400U>
+{
+public:
+const std::chrono::milliseconds period = 1000ms;
+BluetoothTask(){}
+void Execute() override
+{
+for(;;)
+{    
+char transmittedMess[150]={0};
+size_t lengthTransmitedMess;
+for(int k=0;k<4;k++)
+{
+char str[100]={0};
+std::sprintf(str,"%11s : %5.2f %5s \n",measurements[k]->quantityName.c_str(),
+measurements[k]->GetValue(userUnits[k]),Measurement::ShowUnitName(userUnits[k]).c_str());
+strncat(transmittedMess,str,100);
+}
+lengthTransmitedMess = std::strlen(transmittedMess);
+bluetoothTransceiver.SendMessage(transmittedMess,lengthTransmitedMess);
+Led1::Toggle();
+Sleep(period);
+}
+}
+};
+
+==== MeasurementTask.h
+
+[source, cpp]
+#pragma once
+#include "thread.hpp"
+#include "ledconfig.h"
+#include "measurementconfig.h"
+#include "event.hpp";
+#include "bme280driverConfig.h"
+using namespace OsWrapper;
+template<auto& event>
+class MeasurementTask:public Thread<128U>
+{
+public:
+const std::chrono::milliseconds period = 100ms;
+void Execute() override
+{
+for(;;)
+{ 
+bme280.Measure();
+Led2::Toggle();
+Sleep(period);
+if (event.Wait() != 0)
+{
+UnitsUpdate();
+}
+}
+}
+void UnitsUpdate()
+{
+static int counter = 0;
+counter=(counter<2)?(counter+1):0;
+switch(counter)
+{
+case 0:
+userUnits[0]=Unit::F;
+userUnits[3]=Unit::F;
+break;
+case 1:
+userUnits[0]=Unit::K;
+userUnits[3]=Unit::K;
+break;
+case 2:
+userUnits[0]=Unit::C;
+userUnits[3]=Unit::C;
+break;
+}
+}
+};
+
+== Предусмотрим измерение температуры при нажатии кнопки
+По нажатию кнопки USER на плате единцы измерения температуры будут изменяться в следующей последовательности F (Фаренгейт)→K (Кельвин)→C (Цельсий).
+Для работы с кнопкой предусмотрим класс Button. При нажатии кнопки задача будет генерировать событие, меняющей единицы измерения температурных величин.
+
+Для работы с кнопкой предусмотрим класс Button. Для обработки нажатий кнопки предусмотрим задачу ButtonPressTask c малым периодом (100 ms). При нажатии кнопки задача будет генерировать событие, которое будет отслеживаться задачей MeasureTask, циклично меняющей единицы измерения температурных величин.
+
+.Обновлённая диаграмма
+image::kr39.png[]
