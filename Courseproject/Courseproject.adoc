@@ -968,7 +968,7 @@ inline BME280Driver<spi1Transceiver, PinCSforBME280> bme280;
 
 Класс UsartDriver<USART> предоставляет возможность передачи и чтения данных по интерфейсу USART. Момент завершения приема входного сообщения фиксируется по наступлению прерывания.
 
-image::kr36.png[500, 500]
+image::kr36.png[]
 
 === Код классов USART и UsartDriver
 
@@ -1020,11 +1020,11 @@ static void ReceiveDisable()
 {
 USARTx::CR1::RE::Disable::Set();
 }
-static void IdleLineDetectedInterruptEnable()
+static void EndOfTransmittingEnable()
 {
 USARTx::CR1::IDLEIE::InterruptWhenIDLE::Set();
 }
-static void IdleLineDetectedInterruptDisable()
+static void EndOfTransmittingDisable()
 {
 USARTx::CR1::IDLEIE::InterruptInhibited::Set();
 }
@@ -1042,9 +1042,107 @@ if(USARTx::CR1::TE::Enable::IsSet()&&USART2::SR::TXE::DataRegisterEmpty::IsSet()
 {
 tranceiver.OnNextByteTransmite();
 }
-if(USARTx::CR1::IDLEIE::InterruptWhenIDLE::IsSet()&&USARTx::SR::IDLE::IdleLineDetected::IsSet())
+if(USARTx::CR1::IDLEIE::InterruptWhenIDLE::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
 {
 tranceiver.OnIdleLineDetected();
 }
 }
 };
+
+==== usartconfig.h
+
+[source, cpp]
+#pragma once
+#include "usartDriver.h"
+#include "usart.h"
+class usart2;
+inline usartDriver<usart2> bluetoothTransceiver;
+class usart2 : public  USART<USART2,bluetoothTransceiver> {};
+
+
+==== usarDriver.h
+
+[source, cpp]
+#pragma once
+#include "usart.h"
+template<typename usart>
+class usartDriver
+{
+std::array<char,1024> transmiteBuf;
+std::array<char,1024> receiveBuf;
+uint32_t transmiteMessLength=0;
+uint32_t receiveMessLength=0;
+bool messageWasReceived=false;
+bool messageWasTransmited=false;
+uint32_t Rit=0;
+uint32_t Tit=0;
+public:
+void SendMessage(char* message, uint32_t size)
+{
+uint32_t L=size;
+if(transmiteBuf.size()<L) L=transmiteBuf.size();
+transmiteMessLength=L;
+std::memcpy(transmiteBuf.data(), message,L);
+usart::TransmiteEnable();
+usart::TransmiteBufEmptyInterruptEnable();
+messageWasTransmited=false;
+messageWasReceived=false;
+}
+void OnNextByteTransmite()
+{
+if(Tit<transmiteMessLength-1)
+{
+usart::SendByte(transmiteBuf[Tit++]);
+}
+else
+{
+usart::SendByte(transmiteBuf[Tit]);
+Tit=0;
+while(!usart::TransmitionCompleted())
+{
+}
+usart::TransmiteDisable();
+usart::TransmiteBufEmptyInterruptDisable();
+messageWasTransmited=true;
+}
+}
+void OnNextByteReceive()
+{
+uint8_t bf=usart::ReadByte();
+if(!messageWasReceived)
+{
+receiveBuf[Rit++]=bf;
+usart::EndOfTransmittingEnable();
+}
+}
+void OnEndOfTransmitting()
+{
+receiveMessLength=Rit;
+Rit=0;
+usart::EndOfTransmittingDisable();
+messageWasReceived=true;
+}
+bool MessageWasReceived()
+{
+return messageWasReceived;
+}
+void GetMessage(char* outBuf, std::size_t& length)
+{
+length=receiveMessLength;
+std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
+messageWasReceived=false;
+}
+};
+
+== Классы SPI, SpiDriver
+
+Аналогично системе классов Usart-UsartDriver, для работы с протоколом SPI используются классы SPI, SpiDriver. 
+
+.Диаграммы классов SPI, SpiDriver
+image::kr37.png[]
+
+=== Код классов SPI и SpiDriver
+
+==== Spi.h
+
+[source, cpp]
