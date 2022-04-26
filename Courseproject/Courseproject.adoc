@@ -1419,7 +1419,6 @@ image::kr38.png[]
 using namespace OsWrapper;
 class BluetoothTask:public Thread<400U>
 {
-  
 public:
   const std::chrono::milliseconds period = 1000ms;
   BluetoothTask()
@@ -1721,8 +1720,7 @@ enum Moder
   Input=0,
   Output=1,
   Alternate=2,
-  Analog=3,
-  
+  Analog=3,  
 }; 
 template<typename PortType>
 struct AHB1ENR_of
@@ -1899,8 +1897,7 @@ int __low_level_init(void)
     //Switch on external 16 MHz oscillator
     RCC::CR::HSION::On::Set();
     while (RCC::CR::HSIRDY::NotReady::IsSet())
-    {
-      
+    {    
     }
     //Switch system clock on external oscillator
     RCC::CFGR::SW::Hsi::Set();
