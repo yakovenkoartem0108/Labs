@@ -530,9 +530,6 @@ FreeRTOS межзадачная коммуникация (упорядоченн
 
 Так как мы будем работать именно с FreeRTOS, то надо подключить бибилиотеку: #include "rtos.hpp"
 
-==	Предусмотрим измерение температуры при нажатии кнопки
-По нажатию кнопки USER на плате единцы измерения температуры ,elen изменяться в следующей последовательности F (Фаренгейт)→K (Кельвин)→C (Цельсий).
-Для работы с кнопкой предусмотрим класс Button. При нажатии кнопки задача будет генерировать событие, меняющей единицы измерения температурных величин.
 
 
 = Функциональная схема
@@ -568,8 +565,118 @@ image::kr25.png[]
 .Общая архитектура проекта
 image::kr26.png[]
 
+.Диаграмма
+image::kr28.png[]
+
 == Детальная архитектура
 
 .Общая архитектура проекта
 image::kr27.png[]
+
+= Классы
+
+== Класс Measurement
+
+Класс Measurement, описывающий значения измеряемых величин, имеет следующие компоненты:
+
+*	DataSourceFcn - указатель на функцию-поставщик данных;
+*	units - массив единиц измерения, используемых для выражения значения этой величины;
+*	countOfUnit - длина массива unit;
+*	defaultUnit - исходная единица измерения, в которой выражены значения, поставляемые источником данных DataSourceFcn;
+*	GetValue() - функция, возвращающая выраженное в defaultUnit значение измеряемой величины;
+*	GetValue(unit) - функция, возвращающая значение измеряемой величины, выраженное в выбранной единице измерения unit;
+*	quantityName - сторка наименования измеряемой величины;
+*	ShowUnitName(unit) - статическая функция, возвращающаяя строку обозначения единицы измерения unit.
+*	конструктор, создающий экземпляр класса на основе названия измеряемой величины, массива допустимых единиц измерений, длины этого массива, исходной величины измерения, указателя на функцию-поставщика данных;
+*	упрощенный конструктор для величин с одной допустимой единицей измерения, создающий экземпляр класса на основе названия измеряемой величины, единицы измерения, указателя на функцию-поставщика данных.
+
+На рисунке приведены диаграммы класса Measurement, а также экземпляры этих классов temperature, pressure, humidity, dewPoint, указатели на которые объединены в массив measurements.
+
+image::kr29.png[]
+
+=== Код класса Measurement
+
+==== measurement.h
+
+[source, cpp]
+#include <string>
+#include <cassert>
+#pragma once
+enum class Unit
+{
+C,
+hPa,
+percent
+};
+
+class Measurement
+{
+protected:
+double(*DataSourceFcn)();
+public:  
+const Unit *const units;
+const std::size_t countOfUnits;
+const Unit defaultUnit;
+std::string quantityName;
+
+Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
+quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
+{
+assert(CheckUnit(defaultUnit) &&" defalt unit must match measurement's units");
+}
+Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
+quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
+{
+}
+
+virtual double GetValue()
+{
+return DataSourceFcn();
+}
+virtual double GetValue(Unit unit)
+{
+assert(CheckUnit(unit)&&" defalt unit must match measurement's units");
+return DataSourceFcn();
+}
+bool CheckUnit(Unit unit)
+{
+bool flag=false;
+for(int i=0;i<countOfUnits;i++)
+{
+if(unit==units[i])
+{
+flag=true;
+}
+}
+return flag;
+}
+
+static string ShowUnitName(Unit unit)
+{
+string str;
+switch(unit)
+{  
+case Unit::K:
+str = "K";
+break;
+case Unit::F:
+str = "F";
+break;
+case Unit::C:
+str = "C";
+break;
+case Unit::hPa:
+str = "hPa";
+break;
+case Unit::percent:
+str = "%";
+break;  
+default:
+assert(false &&" unit must match measurement's units");
+break;
+}
+return str;
+}
+};
+
 
