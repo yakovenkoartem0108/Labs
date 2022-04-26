@@ -566,7 +566,7 @@ image::kr25.png[]
 image::kr26.png[]
 
 .Диаграмма
-image::kr28.png[]
+image::kr28.png[700, 700]
 
 == Детальная архитектура
 
@@ -592,7 +592,7 @@ image::kr27.png[]
 
 На рисунке приведены диаграммы класса Measurement, а также экземпляры этих классов temperature, pressure, humidity, dewPoint, указатели на которые объединены в массив measurements.
 
-image::kr29.png[]
+image::kr29.png[600, 600]
 
 === Код класса Measurement
 
@@ -608,7 +608,6 @@ C,
 hPa,
 percent
 };
-
 class Measurement
 {
 protected:
@@ -618,7 +617,6 @@ const Unit *const units;
 const std::size_t countOfUnits;
 const Unit defaultUnit;
 std::string quantityName;
-
 Measurement(std::string quantityName, Unit* units, std::size_t countOfUnits, Unit defaultUnit, double(*DataSourceFcn)()):
 quantityName(quantityName),units(units), countOfUnits(countOfUnits),defaultUnit(defaultUnit), DataSourceFcn(DataSourceFcn)
 {
@@ -628,7 +626,6 @@ Measurement(std::string quantityName, Unit unit, double(*DataSourceFcn)()):
 quantityName(quantityName),defaultUnit(unit),units(&defaultUnit), countOfUnits(1), DataSourceFcn(DataSourceFcn)
 {
 }
-
 virtual double GetValue()
 {
 return DataSourceFcn();
@@ -650,18 +647,11 @@ flag=true;
 }
 return flag;
 }
-
 static string ShowUnitName(Unit unit)
 {
 string str;
 switch(unit)
 {  
-case Unit::K:
-str = "K";
-break;
-case Unit::F:
-str = "F";
-break;
 case Unit::C:
 str = "C";
 break;
@@ -678,5 +668,36 @@ break;
 return str;
 }
 };
+
+==== measurementConfig.h
+
+[source, cpp]
+#pragma once
+#include "Measurement.h"
+#include "Temperature.h"
+#include "bme280driverconfig.h"
+double fcnTemp()
+{
+return bme280.GetTemperature();
+};
+double fcnPress()
+{
+return bme280.GetPressure();
+};
+double fcnHum()
+{
+return bme280.GetHumidity();
+};
+double fcnDewP()
+{
+return bme280.GetDewPoint();
+};
+inline Temperature temperature("Temperature", fcnTemp);
+inline Measurement pressure("Pressure", Unit::hPa, fcnPress);
+inline Measurement humidity("Humidity", Unit::percent, fcnHum);
+inline Temperature dewPoint("Dew point",  fcnDewP);
+inline Measurement* measurements[4] = {&temperature, &pressure, &humidity, &dewPoint};
+inline Unit userUnits[4]={Unit::F, Unit::hPa, Unit::percent, Unit::F};
+
 
 
