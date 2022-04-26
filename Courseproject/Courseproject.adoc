@@ -1022,7 +1022,7 @@ USARTx::CR1::RE::Disable::Set();
 }
 static void EndOfTransmittingEnable()
 {
-USARTx::CR1::IDLEIE::InterruptWhenIDLE::Set();
+USARTx::CR1::IDLEIE::Interrupt::Set();
 }
 static void EndOfTransmittingDisable()
 {
@@ -1042,9 +1042,9 @@ if(USARTx::CR1::TE::Enable::IsSet()&&USART2::SR::TXE::DataRegisterEmpty::IsSet()
 {
 tranceiver.OnNextByteTransmite();
 }
-if(USARTx::CR1::IDLEIE::InterruptWhenIDLE::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
+if(USARTx::CR1::IDLEIE::Interrupt::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
 {
-tranceiver.OnIdleLineDetected();
+tranceiver.OnEndOfTransmitting();
 }
 }
 };
