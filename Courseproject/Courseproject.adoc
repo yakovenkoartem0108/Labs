@@ -25,10 +25,10 @@
 Передача значений по беспроводному интерфейсу должна осуществляться через модуль BlueTooth Bee *HC-06*
 
 * Формат вывода: +
-"Давление:" XXX.XX +
-"Влажность:" XXX.XX +
-"Температура:" XXX.XX +
-"Точка росы":" XXX.XX +
+"Давление:" XXX.XX [Units] +
+"Влажность:" XXX.XX [Units] +
+"Температура:" XXX.XX [Units] +
+"Точка росы":" XXX.XX [Units] +
 
 * Для подключения модуля BlueTooth должна использоваться плата *Accessories* *Shield* или I/O Expansion Shield
 * Общение с платной модуля BlueTooth должна осуществляться через USART2
@@ -435,10 +435,10 @@ image::kr23.png[300, 300]
 
 === Формат вывода:
 
-"Давление: " XXX.XX  +
-"Влажность: " XXX.XX  +
-"Температура: " XXX.XX  +
-"Точка росы": " XXX.XX  +
+"Давление: " XXX.XX [Units] +
+"Влажность: " XXX.XX [Units] +
+"Температура: " XXX.XX [Units] +
+"Точка росы": " XXX.XX [Units] +
 
 === Для подключения модуля BlueTooth должна использоваться плата Accessories Shield или I/O Expansion Shield
 
@@ -538,7 +538,7 @@ FreeRTOS межзадачная коммуникация (упорядоченн
 
 
 .Функциональная схема устройства
-image::kr24.png[]
+image::kr45.png[]
 
 Функциональная схема устройства состоит из следующих блоков:
 
@@ -555,6 +555,9 @@ image::kr24.png[]
 
 .Схема электрическая принципиальная
 image::kr25.png[]
+
+.Перечень элементов
+image::kr46.png[]
 
 = Архитектура проекта 
 
@@ -1141,6 +1144,42 @@ messageWasReceived=false;
 .Диаграммы классов SPI, SpiDriver
 image::kr37.png[]
 
+*Методы SendByte() и ReadByte()* получают и передают данные в буфер.
+Регистр данных разделен на 2 буфера - один для записи (буфер передачи) и другой для чтения (буфер приема). Запись в регистр данных приведет к записи в буфер Tx, а считывание из регистра данных вернет значение, хранящееся в буфере Rx.
+
+image::sp1.png[500, 500]
+
+*Методы TransmiteBufEmptyInterruptEnable(), TransmiteBufEmptyInterruptDisable()* отвечают за включение прерывания с пустым буфером Tx.
+
+image::sp2.png[500, 500]
+
+Используется для генерации запроса на прерывание, когда установлен флаг TXE.
+
+
+*Методы ReceiveBufNotEmptyInterruptEnable() и ReceiveBufNotEmptyInterruptDisable()* отвечают за разрешение прерывания при заполнении буфера RX.
+
+image::sp3.png[500, 500]
+
+
+*Метод TransmittionCompleted()* отвечает за завершение передачи данных, проверяет происходит ли передача данных и пуст ли Tx буфер.
+
+image::sp4.png[400, 400]
+
+*Метод SpiInterruptHandler* обрабатывает прерывания буфера Rx и Tx и перенаправляет их в методы OnNextByte.
+
+
+*Методы SendMessage(), SendByte()* отвечают за передачу данных по интерфейсу SPI.
+
+*Методы  IsMessageTransmitted() и IsMessageReceived()* получают и передают  данные.
+
+*Методы  OnNextByteTransmite() и OnNextByteReceive()* отвечают за получение и последующую передачу байтов.
+
+*Методы GetMessage(), GetByte()* отвечают за получение данных и предоставляют доступ на их чтение.
+
+*Метод SetReceivedMesLength* устанавливает длину полученного сообщения. 
+
+
+
 === Код классов SPI и SpiDriver
 
 ==== Spi.h
@@ -1151,56 +1190,68 @@ image::kr37.png[]
 #include "spi1registers.hpp"
 #include <gpiocregisters.hpp>
 #include <gpiobregisters.hpp>
+
+[source, cpp]
 struct SpiConfig
 {
-SpiConfig();
+  SpiConfig();
 };
+
+[source, cpp]
 template<typename SPIx, auto& transceiver>
 class SPI
 {
-static SpiConfig config;
-public:
-using T=char;
-static void Config(SpiConfig config);
-static void SendByte(T byte)
-{
-SPIx::DR::Write(byte);
-}
-static T ReadByte()
-{
-return SPIx::DR::Get();
-}
-static void TransmiteBufEmptyInterruptEnable()
-{
-SPIx::CR2::TXEIE::NotMasked::Set();
-}  
-static void TransmiteBufEmptyInterruptDisable()
-{
-SPIx::CR2::TXEIE::Masked::Set();
-} 
-static void ReceiveBufNotEmptyInterruptEnable()
-{
-SPIx::CR2::RXNEIE::NotMasked::Set();
-}  
-static void ReceiveBufNotEmptyInterruptDisable()
-{
-SPIx::CR2::RXNEIE::Masked::Set();
-}  
-static bool TransmittionCompleted()
-{
-return SPIx::SR::BSY::NotBusy::IsSet();
-}
-static void SpiInterruptHandler()
-{
-if(SPIx::CR2::RXNEIE::NotMasked::IsSet()&&SPIx::SR::RXNE::RxBufferNotEmpty::IsSet())
-{
-transceiver.OnNextByteReceive();
-}
-if (SPIx::CR2::TXEIE::NotMasked::IsSet()&&SPIx::SR::TXE::TxBufferEmpty::IsSet())
-{
-transceiver.OnNextByteTransmite();
-}
-}
+  static SpiConfig config;  
+  public:
+  using T = char;
+  static void Config(SpiConfig config);
+  // получают и передают данные в буфер. Регистр данных разделен на 2 буфера - один для записи (буфер передачи) и другой для чтения (буфер приема). 
+  // Запись в регистр данных приведет к записи в буфер Tx, а считывание из регистра данных вернет значение, хранящееся в буфере Rx.
+  static void SendByte(T byte) 
+  {   
+    SPIx::DR::Write(byte);   
+  }
+  static T ReadByte()
+  {
+    return SPIx::DR::Get();
+  }
+  // отвечает за включение прерывания с пустым буфером Tx.
+  static void TransmiteBufEmptyInterruptEnable() 
+  {
+    SPIx::CR2::TXEIE::NotMasked::Set();
+  }  
+  // отвечает за выключение прерывания.
+  static void TransmiteBufEmptyInterruptDisable() 
+  {
+    SPIx::CR2::TXEIE::Masked::Set();
+  } 
+  // отвечает за включение прерывания при заполнении буфера RX.
+  static void ReceiveBufNotEmptyInterruptEnable() 
+  {
+    SPIx::CR2::RXNEIE::NotMasked::Set();
+  }  
+  // отвечает за выключение прерывания.
+  static void ReceiveBufNotEmptyInterruptDisable() 
+  {
+    SPIx::CR2::RXNEIE::Masked::Set();
+  }  
+  // отвечает за завершение передачи данных, проверяет происходит ли передача данных и пуст ли Tx буфер.
+  static bool TransmittionCompleted() 
+  {
+    return SPIx::SR::BSY::NotBusy::IsSet();
+  }
+  // обрабатывает прерывания буфера Rx и Tx и перенаправляет их в методы OnNextByte.
+  static void SpiInterruptHandler() 
+  {
+    if(SPIx::CR2::RXNEIE::NotMasked::IsSet()&&SPIx::SR::RXNE::RxBufferNotEmpty::IsSet())
+    {
+       transceiver.OnNextByteReceive();
+    }
+    if (SPIx::CR2::TXEIE::NotMasked::IsSet()&&SPIx::SR::TXE::TxBufferEmpty::IsSet())
+    {
+      transceiver.OnNextByteTransmite();
+    }
+  }
 };
 
 ==== spiсonfig.h
@@ -1222,115 +1273,122 @@ class spi1 : public  SPI<SPI1, spi1Transceiver> {};
 template<typename spi>
 class SpiDriver
 {
-std::array<char,200> transmiteBuf ={0};
-std::array<char,200> receiveBuf = {0};
-uint32_t transmiteMessLength=1;
-uint32_t receiveMessLength=1;
-bool messageWasReceived=false;
-bool messageWasTransmited=false;
-uint32_t Rit=0;
-uint32_t Tit=0;
-public:
-void SendMessage(char* message, std::size_t size)
-{
-messageWasTransmited=false;   
-uint32_t L=size;
-if(transmiteBuf.size()<L) L=transmiteBuf.size();
-transmiteMessLength=L;
-std::memcpy(transmiteBuf.data(), message,transmiteMessLength);
-messageWasReceived=(receiveMessLength==0);
-if(receiveMessLength!=0)
-{
-spi::ReadByte();
-spi::ReceiveBufNotEmptyInterruptEnable();
-}
-spi::TransmiteBufEmptyInterruptEnable();
-}
-void SendByte(char byte)
-{
-messageWasTransmited=false;   
-transmiteMessLength=1;
-transmiteBuf[0]=byte;
-messageWasReceived=(receiveMessLength==0);
-spi::ReadByte();
-if(receiveMessLength!=0)
-{
-spi::ReadByte();
-spi::ReceiveBufNotEmptyInterruptEnable();
-}
-spi::TransmiteBufEmptyInterruptEnable();   
-}
-void OnNextByteTransmite()
-{
-if(Tit<transmiteMessLength||(!messageWasReceived))
-{
-if(Tit>=transmiteMessLength)
-{
-transmiteBuf[Tit]=transmiteBuf[Tit-1];
-}
-spi::SendByte(transmiteBuf[Tit++]);
-}
-else
-{
-Tit=0;
-spi::TransmiteBufEmptyInterruptDisable();
-if(receiveMessLength==0)
-{
-while(!spi::TransmittionCompleted())
-{
-}
-}
-messageWasTransmited=true;
-}
-}
-void OnNextByteReceive()
-{
-static bool isfirst=true;
-uint8_t bf=spi::ReadByte();
-if(!messageWasReceived)
-{
-if(!isfirst)
-{
-receiveBuf[Rit++]=bf;
-if(Rit==receiveMessLength)
-{         
-spi::ReceiveBufNotEmptyInterruptDisable();
-Rit=0;
-messageWasReceived=true;
-isfirst=true;
-}
-}
-else
-{
-isfirst=false;
-}
-}
-}
-bool IsMessageReceived()
-{
-return messageWasReceived;
-}
-bool IsMessageTransmited()
-{
-return messageWasTransmited;
-}
-void GetMessage(char* outBuf)
-{
-std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
-//receiveBuf.fill(0);
-messageWasReceived=false;
-}
-char GetByte()
-{
-messageWasReceived=false;
-char bf = receiveBuf[0];
-receiveBuf[0]=0;
-return bf;
-}
-void SetReceivedMesLength(std::size_t size)
-{
-receiveMessLength=size;
-}
+  std::array<char,200> transmiteBuf = {0};
+  std::array<char,200> receiveBuf = {0};
+  uint32_t transmiteMessLength = 1;
+  uint32_t receiveMessLength = 1;
+  bool messageWasReceived = false;
+  bool messageWasTransmited = false;
+  uint32_t Rit=0;
+  uint32_t Tit=0;
+  public:
+  // отвечает за передачу данных по интерфейсу SPI.
+  void SendMessage(char* message, std::size_t size)
+  {
+    messageWasTransmited=false;   
+    uint32_t L = size;
+    if(transmiteBuf.size()<L) L=transmiteBuf.size();
+    transmiteMessLength =L;
+    std::memcpy(transmiteBuf.data(), message,transmiteMessLength);
+    messageWasReceived = (receiveMessLength == 0);    
+    if(receiveMessLength != 0)
+    {
+      spi::ReadByte();
+      spi::ReceiveBufNotEmptyInterruptEnable();
+    }
+    spi::TransmiteBufEmptyInterruptEnable();   
+  }
+  void SendByte(char byte)
+  {
+    messageWasTransmited = false;   
+    transmiteMessLength = 1;
+    transmiteBuf[0] = byte;
+    messageWasReceived = (receiveMessLength == 0);
+    spi::ReadByte();
+    if(receiveMessLength != 0)
+    {
+      spi::ReadByte();
+      spi::ReceiveBufNotEmptyInterruptEnable();
+    }
+    spi::TransmiteBufEmptyInterruptEnable();   
+  }
+  //отвечает за передачу байтов.
+  void OnNextByteTransmite()
+  {
+    if(Tit<transmiteMessLength||(!messageWasReceived))
+    {
+      if(Tit>=transmiteMessLength)
+      {
+        transmiteBuf[Tit]=transmiteBuf[Tit-1];
+      }
+      spi::SendByte(transmiteBuf[Tit++]);
+    }
+    else
+    {
+      Tit = 0;
+      spi::TransmiteBufEmptyInterruptDisable();
+      if(receiveMessLength == 0)
+      {
+        while(!spi::TransmittionCompleted())
+        {
+        }
+      }
+      messageWasTransmited = true;
+    }
+  }
+  //отвечает за получение байтов. 
+  void OnNextByteReceive()
+  {
+    static bool isfirst = true;
+    uint8_t bf = spi::ReadByte();
+    if(!messageWasReceived)
+    {
+      if(!isfirst)
+      {
+        receiveBuf[Rit++] = bf;
+        if(Rit == receiveMessLength)
+        {         
+          spi::ReceiveBufNotEmptyInterruptDisable();
+          Rit = 0;
+          messageWasReceived = true;
+          isfirst = true;
+        }
+      }
+      else
+      {
+        isfirst = false;
+      }
+    }
+  }
+  // получает и передает данные.
+  bool IsMessageReceived()
+  {
+    return messageWasReceived;
+  }
+  bool IsMessageTransmited()
+  {
+    return messageWasTransmited;
+  }
+  // отвечает за получение сообщения и предоставляет доступ на их чтение.  
+  void GetMessage(char* outBuf)
+  {
+    std::memcpy(outBuf, receiveBuf.data(),receiveMessLength);
+    //receiveBuf.fill(0);
+    messageWasReceived = false;
+  }
+  // отвечает за получение байтов и предоставляет доступ на их чтение.  
+  char GetByte()
+  {
+    messageWasReceived = false;
+    char bf = receiveBuf[0];
+    receiveBuf[0] = 0;
+    return bf;
+  }
+  // устанавливает длину полученного сообщения.
+  void SetReceivedMesLength(std::size_t size)
+  {
+    receiveMessLength = size;
+  }
 };
 
 == Классы BluetoothUpdateTask, MeasurementTask
