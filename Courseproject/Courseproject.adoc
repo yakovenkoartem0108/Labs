@@ -991,7 +991,6 @@ class USART
   static UsartConfig config; 
 public: 
   static void Config(UsartConfig config);
-  
   static void SendByte(uint8_t byte)
   {
     USARTx::DR::Write(byte);
@@ -1192,13 +1191,11 @@ image::sp4.png[400, 400]
 #include "spi1registers.hpp"
 #include <gpiocregisters.hpp>
 #include <gpiobregisters.hpp>
-
 [source, cpp]
 struct SpiConfig
 {
   SpiConfig();
 };
-
 [source, cpp]
 template<typename SPIx, auto& transceiver>
 class SPI
