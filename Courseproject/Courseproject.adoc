@@ -836,6 +836,29 @@ class SpiDriver
 
 В классе USART<USARTx, tranceiver> содержатся методы, оборачивающие работу с регистрами USARTx микроконтроллера, и обработчик прерываний USARTx, в котором вызываются методы драйвера tranceiver, содержащие конкретную логику действий, которые требуется совершить при прерываниях RXNE (буфер приема не пуст), TXE (буфер передачи пуст).
 
+[source, cpp]
+template<typename USARTx, auto& tranceiver>
+class USART
+{
+ . . .
+  static void UsartInterruptHandler()
+  {
+    if(USARTx::CR1::RXNEIE::InterruptWhenRXNE::IsSet()&&USARTx::SR::RXNE::DataRecieved::IsSet())
+    {
+      tranceiver.OnNextByteReceive();
+    }
+    if(USARTx::CR1::TE::Enable::IsSet()&&USARTx::SR::TXE::DataRegisterEmpty::IsSet())
+    {
+      tranceiver.OnNextByteTransmite();
+    }
+    if(USARTx::CR1::IDLEIE::InterruptWhenIDLE::IsSet()&&USARTx::SR::IDLE::EndOfTransmitting::IsSet())
+    {
+      tranceiver.OnIdleLineDetected();
+    }
+  }
+};
+
+
 Класс UsartDriver<USART> предоставляет возможность передачи и чтения данных по интерфейсу USART. Момент завершения приема входного сообщения фиксируется по наступлению прерывания.
 
 image::kr36.png[]
