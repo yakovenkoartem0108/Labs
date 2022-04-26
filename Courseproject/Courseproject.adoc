@@ -711,7 +711,7 @@ inline Unit userUnits[4]={Unit::F, Unit::hPa, Unit::percent, Unit::F};
 *	Методы GetTemperature(), GetPressure(), GetHumidity(), GetDewPoint() предоставляют доступ на чтение полей temperature, pressure,humidity, dewPoint.
 
 .Диаграмма класса BME280Driver
-image::kr30.png[600, 600]
+image::kr30.png[400, 400]
 
 Наиболее существенной задачей, решенной при разработке BME280Driver, является задача чтения компенсационных параметров из регистров датчика и компенсация с их помощью систематических погршностей сырых данных датчика. На рисунке приводятся регистры датчика, в которых записаны компенсационные параметры (Table 16) и регистры управления режимом измерений (Tables 19, 22):
 
@@ -953,4 +953,98 @@ public:
   }  
 };
 
+==== BME280DriverConfig.h
 
+[source, cpp]
+ #pragma once
+#include "BME280Driver.h"
+#include "spiconfig.h"
+#include "pinsconfig.h"
+inline BME280Driver<spi1Transceiver, PinCSforBME280> bme280;
+
+== Классы USART, UsartDriver
+
+В классе USART<USARTx, tranceiver> содержатся методы, оборачивающие работу с регистрами USARTx микроконтроллера, и обработчик прерываний USARTx, в котором вызываются методы драйвера tranceiver, содержащие конкретную логику действий, которые требуется совершить при прерываниях RXNE (буфер приема не пуст), TXE (буфер передачи пуст).
+
+Класс UsartDriver<USART> предоставляет возможность передачи и чтения данных по интерфейсу USART. Момент завершения приема входного сообщения фиксируется по наступлению прерывания.
+
+image::kr36.png[500, 500]
+
+=== Код классов USART и UsartDriver
+
+==== usart.h
+
+[source, cpp]
+#pragma once
+#include "usart2registers.hpp"
+#include "usart1registers.hpp"
+struct UsartConfig
+{
+UsartConfig();
+};
+template<typename USARTx, auto& tranceiver>
+class USART
+{
+static UsartConfig config;
+public:
+static void Config(UsartConfig config);
+static void SendByte(uint8_t byte)
+{
+USARTx::DR::Write(byte);
+}
+static uint8_t ReadByte()
+{
+return USARTx::DR::Get();
+}
+static void TransmiteEnable()
+{
+USARTx::CR1::TE::Enable::Set();
+}
+static void TransmiteBufEmptyInterruptEnable()
+{
+USARTx::CR1::TXEIE::InterruptWhenTXE::Set();
+}  
+static void TransmiteDisable()
+{
+USARTx::CR1::TE::Disable::Set();
+}
+static void TransmiteBufEmptyInterruptDisable()
+{
+USARTx::CR1::TXEIE::InterruptInhibited::Set();
+} 
+static void ReceiveEnable()
+{
+USARTx::CR1::RE::Enable::Set();
+}
+static void ReceiveDisable()
+{
+USARTx::CR1::RE::Disable::Set();
+}
+static void IdleLineDetectedInterruptEnable()
+{
+USARTx::CR1::IDLEIE::InterruptWhenIDLE::Set();
+}
+static void IdleLineDetectedInterruptDisable()
+{
+USARTx::CR1::IDLEIE::InterruptInhibited::Set();
+}
+static bool TransmitionCompleted()
+{
+return USARTx::SR::TC::TransmitionComplete::IsSet();
+}
+static void UsartInterruptHandler()
+{
+if(USARTx::SR::RXNE::DataRecieved::IsSet())
+{
+tranceiver.OnNextByteReceive();
+}
+if(USARTx::CR1::TE::Enable::IsSet()&&USART2::SR::TXE::DataRegisterEmpty::IsSet())
+{
+tranceiver.OnNextByteTransmite();
+}
+if(USARTx::CR1::IDLEIE::InterruptWhenIDLE::IsSet()&&USARTx::SR::IDLE::IdleLineDetected::IsSet())
+{
+tranceiver.OnIdleLineDetected();
+}
+}
+};
